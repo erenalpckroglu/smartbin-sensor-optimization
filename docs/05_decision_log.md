@@ -1,0 +1,25 @@
+# Decision log
+
+| # | Decision | Alternatives considered | Why |
+|---|---|---|---|
+| 1 | Separate analyses and dashboards for 6 kg and 20 kg | One pooled model with a scale dummy | Different hardware, different boxes (nested), different mechanics. Pooled results would average two different machines |
+| 2 | Analysis unit = device-setting (and section for weight) | Raw rows | Rates need a time window. Rows are not independent; chatty scales would dominate |
+| 3 | Flag instead of delete for Stage B rules | Drop rows with any missing field | Deleting breaks weight deltas and removes real picks from the crosstalk analysis |
+| 4 | Keep only standard trigger config (min-wait 1, delay 30) | Ignore these columns | Out of scope per the lecture, but non-standard values change triggering and would confound sensitivity |
+| 5 | Sensitivity 3 studied separately | Treat as a normal level / delete | Behaves unlike levels 2 and 4 (selection and/or setting quirk). The lecture says ignore it; we also show why |
+| 6 | Use all levels with ≥ 30 scales, not only 1/4/7 | Lecture hint 1, 4, 7 | The full curve is cheap and shows the trade-off; 1/4/7/8 are highlighted in charts |
+| 7 | Causal effects from same-device DiD | Compare scales on different levels | Levels were not assigned at random |
+| 8 | Shapley R² for "how much does each parameter matter" | p-values, ANOVA η² | With ~100k units every p-value is tiny. Shapley handles correlated parameters and sums to one number |
+| 9 | Location noise floor | Raw location R² | 180 levels inflate R² by chance |
+| 10 | `relevant_for_weight_analysis` used, plus a robustness run on all weight-bin movers | Only the D ONE subset | That subset was selected on "something changes", i.e. on the outcome |
+| 11 | Transparent rules (lookup table + feedback rule) as the deliverable | ML model that sets sensitivity | Bossard's Smart-Ordering experience: people resist opaque AI. Rules are auditable |
+| 12 | Synthetic ground-truth validation | Trust the methods | A method that cannot find a planted effect cannot be trusted on real data |
+| 13 | DuckDB on disk | pandas in memory | 7.5M rows on a student laptop; window functions and range joins in SQL |
+| 14 | Stayer control = balanced cohort (scales observed from the first to the last weeks) | All stayers pooled | The fleet grows during the experiment and new scales behave differently. Pooling mixed this composition change into the "calendar trend" (found on real data) |
+| 15 | Bug test for sensitivity 3 (triggers/day, re-trigger within 2 min, night share, same scales on 8 vs 3) | Just drop level 3 | The real data shows a loop: about 150 triggers/day, a median gap of 90 s (= min-wait 60 s + delay 30 s), and 33% of triggers at night. That is a firmware/config defect, not a setting |
+| 16 | KPI 2.0 next to Bossard's KPI | Optimise Bossard's KPI only | The fraction is driven by usage. Optimising it picks settings that miss about half of the real changes |
+| 17 | Crosstalk compared against the same statistic around real picks | Correlogram around TOO_MANY only | Real picks show the same peak (workers pick several bins in a row), so the coupling is human activity, not proven mechanical vibration |
+| 18 | Pick sizes below the scale's significance threshold are marked "below threshold" and left out of zones and fits | Rate every pick-size bin | Below about 23 g (20 kg) and 5 g (6 kg), a missed change is never labelled TOO_FEW. The detection rate there looked high only because the misses were invisible. The floor is measured from the data (5th percentile of TOO_FEW pick sizes) |
+| 19 | Duplicates with two different labels (same device, same millisecond) keep one copy for the weight chain but are flagged B0 and left out of the KPI | Keep the first copy in file order | The first-in-file copy picked the label at random (1,300 groups: OK vs TOO_FEW, OK vs TOO_MANY). The outcome of such a weighing is unknown |
+| 20 | Parameter importance shown as "spread between best and worst group" (option A); Shapley R² kept as an appendix / future work | Shapley R² on the main slide | Variance explained is easy to misread as "strength of the knob": sensitivity scores 1.6% only because about 85% of rows sit on level 8, although the same-device effect of 8→1 is −0.23 |
+| 21 | Power BI pack (`reports/<run>/powerbi/`) at the grain "one scale on one sensitivity level" | Load measurements.csv into Power BI | Ratios must be computed per scale before they are summarised; pooled row counts let the noisiest scales (sensitivity 3 loops) dominate |

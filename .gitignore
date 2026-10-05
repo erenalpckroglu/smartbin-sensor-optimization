@@ -1,0 +1,23 @@
+# confidential Bossard data - never commit
+data/raw/*
+!data/raw/.gitkeep
+data/interim/*
+!data/interim/.gitkeep
+data/synthetic/*
+!data/synthetic/.gitkeep
+# derived row-level data (63 MB, built from Bossard data)
+data/processed/*
+!data/processed/.gitkeep
+# generated outputs (regenerate with make demo / make run)
+reports/*
+!reports/.gitkeep
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.venv/
+.DS_Store
+code_update.zip
+run_bossard.sh.local
+# Power BI files embed the data: commit only a synthetic version, on purpose (git add -f)
+*.pbix
+~$*

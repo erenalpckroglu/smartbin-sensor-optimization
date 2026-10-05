@@ -1,0 +1,81 @@
+# ------------------------------------------------------------------------------------
+# SmartBin Cloud - vibration sensor optimisation
+# Every analytical choice lives here, not in code. Change a number -> rerun -> done.
+# ------------------------------------------------------------------------------------
+
+paths:
+  measurements: data/raw/measurements.csv          # 7.5M rows (confidential, never committed)
+  metadata: data/raw/scale_metadata.csv
+  preprocessing: data/raw/scale_preprocessing.csv
+  interim: data/interim                             # duckdb working database + full events parquet (large)
+  processed: data/processed                         # small analysis tables: sections, device-settings, row flags
+  reports: reports                                  # figures, tables, dashboards
+
+# Bossard's own KPI definitions (case slides "GROUP WORK: METRICS")
+kpi:
+  tm_target: 0.5            # fraction TOO_MANY of automatic measurements  (<= target is good)
+  tm_alarm: 0.8             # > alarm = clearly too sensitive
+  tf_target: 2.0            # TOO_FEW per week                             (<= target is good)
+
+# KPI 2.0 - our proposal (see docs/01). The TOO_MANY *fraction* rises whenever a bin is used less
+# (fewer real picks in the denominator), so it punishes slow-moving parts, not bad settings.
+kpi2:
+  tm_per_week: 7.0          # absolute empty measurements per week (<= 1 per day) = battery & cloud load
+  miss_rate: 0.10           # share of real stock changes the sensor slept through (<= 10%)
+
+cleaning:
+  start_date: "2022-03-01"  # D ONE: "remove anything before March (suboptimal settings)"
+  end_date: null
+  max_weight_g: 100000      # D ONE: invalid weights (< 0, > 100 kg)
+  standard_minwaittime: [1.0]   # rows with other explicit values = different trigger config -> excluded
+  standard_delay: [30.0]        # NaN = not logged -> kept but flagged (robustness check)
+  min_devices_per_level: 30     # sensitivity levels with fewer devices per scale type -> excluded from curves
+  anomaly_levels: [3]           # lecture: "ignore sensitivity 3" -> excluded from main, studied separately
+
+analysis:
+  baseline_sensitivity: 8       # March 2022: every device on 8 = factory default / control
+  baseline_end: "2022-04-01"
+  main_levels: [1, 2, 4, 5, 6, 7, 8]
+  story_levels: [1, 4, 7, 8]    # highlighted in charts (lecture hint 1/4/7 + baseline 8)
+  min_devices_location: 5       # locations with fewer devices are not ranked
+  bootstrap_reps: 300
+  permutations: 999
+  split_half_reps: 200
+  random_seed: 42
+  marginal_r2: 0.01             # Shapley R2 below this = "no / marginal influence"
+
+pick_size:
+  max_gap_days: 7               # delta to previous measurement only if gap <= 7 days
+  bins_g: [0, 2, 5, 10, 20, 50, 100, 200, 500, 100000]
+  green_zone: 0.95              # >= 95% of picks detected -> green
+  red_zone: 0.80                # <  80% detected -> red ; in between -> amber
+  min_picks_per_cell: 30        # fewer picks -> "not enough data" (gray)
+
+crosstalk:
+  window_s: 120                 # look +-120 s around every automatic measurement
+  bin_s: 2
+  near_s: null                  # null = detect from the cross-correlogram, else fixed seconds
+  control_offset_s: 60          # chance level measured in a band starting 60 s away
+  echo_window_s: 300            # own OK measurement within 5 min before a TOO_MANY = "echo"
+  infer_racks: true             # cluster devices that co-trigger -> virtual racks
+  rack_min_near: 5
+  rack_min_lift: 3.0
+
+policy:
+  levels: [1, 2, 4, 5, 6, 7, 8]
+  min_switchers: 15             # min devices to estimate the effect of moving 8 -> k
+  cycle_days: 14                # adaptive rule: review every 2 weeks
+  n_cycles: 8
+  tf_safety: 0.5                # only lower sensitivity if TOO_FEW/week <= 0.5 * target
+  seed: 11
+
+battery:                        # ASSUMPTIONS - shown next to every battery number
+  measurement_seconds: 2.0      # active time per measurement (unknown, sensitivity-tested 1-5 s)
+  active_power_factor: 3000     # case slide: measuring draws ~3000x sleep power
+fleet:
+  installed_scales: 110000      # case slide: installed base March 2025
+
+runtime:
+  sample_mode: auto             # auto | true | false ; auto = true if < 1M rows (random-row sample)
+  duckdb_memory_limit: null     # e.g. "6GB" on a small laptop
+  threads: null

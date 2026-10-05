@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smartbin-sensor-optimization"
+version = "1.0.0"
+description = "Data-driven tuning of IoT vibration sensors in smart storage bins (causal inference, crosstalk detection, policy simulation)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "duckdb>=0.10",
+  "pandas>=2.0",
+  "numpy>=1.24",
+  "scipy>=1.10",
+  "matplotlib>=3.7",
+  "networkx>=3.0",
+  "pyyaml>=6.0",
+  "pyarrow>=14",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+smartbin = "smartbin.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+markers = ["slow: end-to-end run on synthetic data (~1 min)"]

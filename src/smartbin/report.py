@@ -1,0 +1,363 @@
+"""
+Outputs for humans and machines:
+  reports/index.html            overview: data cleaning funnel, checks, column decisions, links
+  reports/dashboard_6kg.html    full storyline for 6kg scales
+  reports/dashboard_20kg.html   full storyline for 20kg scales
+  reports/run_summary.md        the answers in plain text (paste into slides / send to a colleague)
+  reports/results.json          every headline number, machine-readable
+Every HTML file is self-contained (images embedded) -> can be mailed or opened offline.
+"""
+from __future__ import annotations
+
+import base64
+import datetime as dt
+import html
+import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+CSS = """
+:root{--bg:#f9f9f7;--card:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--line:#e1e0d9;
+--blue:#2a78d6;--orange:#eb6834;--good:#0ca30c;--warn:#fab219;--bad:#d03b3b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);
+font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1120px;margin:0 auto;padding:28px 20px 80px}
+h1{font-size:28px;margin:0 0 4px}h2{font-size:21px;margin:42px 0 6px;padding-top:12px;border-top:1px solid var(--line)}
+h3{font-size:16px;margin:22px 0 6px}.sub{color:var(--ink2);margin:0 0 16px}
+.q{color:var(--ink2);font-style:italic;margin:0 0 14px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:14px 0}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.tile .l{font-size:12px;color:var(--ink2)}.tile .v{font-size:28px;font-weight:600;margin-top:2px}
+.tile .d{font-size:12px;color:var(--muted)}
+img{max-width:100%;height:auto;display:block;background:var(--card);border:1px solid var(--line);border-radius:10px;margin:8px 0}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:14px}
+.solo img{max-width:860px}
+table{border-collapse:collapse;width:100%;font-size:13px;background:var(--card);margin:8px 0}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{color:var(--ink2);font-weight:600;background:#f3f2ee}td.n{text-align:right;font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto}.banner{padding:12px 16px;border-radius:10px;margin:12px 0;border:1px solid var(--line)}
+.banner.warn{background:#fff6e0}.banner.info{background:#eaf2fc}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;border:1px solid var(--line)}
+.PASS{color:#006300}.WARN,.FAIL{color:#b42318}nav a{margin-right:14px;color:var(--blue)}
+ul.notes{color:var(--ink2);font-size:13px}
+"""
+
+
+def _img(path) -> str:
+    if not path or not Path(path).exists() or Path(path).suffix != ".png":
+        return ""
+    b = base64.b64encode(Path(path).read_bytes()).decode()
+    return f'<div class="solo"><img alt="{html.escape(Path(path).stem)}" src="data:image/png;base64,{b}"></div>'
+
+
+def _fmt(v, col=""):
+    if isinstance(v, (float, np.floating)):
+        if np.isnan(v):
+            return "–"
+        if col.startswith(("share", "pct_removed", "miss_rate")) or col in ("time_in_target",):
+            return f"{v:.0%}"
+        if col.endswith("_pct"):
+            return f"{v:+.0f}%"
+        if float(v).is_integer() and abs(v) < 1e9:
+            return f"{int(v):,}"
+        return f"{v:,.3f}" if abs(v) < 10 else f"{v:,.0f}"
+    if isinstance(v, (int, np.integer)):
+        return f"{v:,}"
+    return html.escape(str(v))
+
+
+def _table(df: pd.DataFrame, cols=None, max_rows=60) -> str:
+    if df is None or len(df) == 0:
+        return "<p class='sub'>No data.</p>"
+    d = df[cols] if cols else df
+    d = d.head(max_rows)
+    head = "".join(f"<th>{html.escape(str(c))}</th>" for c in d.columns)
+    body = ""
+    for _, row in d.iterrows():
+        tds = ""
+        for c in d.columns:
+            v = row[c]
+            cls = "n" if isinstance(v, (int, float, np.integer, np.floating)) else ""
+            txt = _fmt(v, str(c))
+            if c == "status":
+                txt = f"<span class='{txt}'>{txt}</span>"
+            tds += f"<td class='{cls}'>{txt}</td>"
+        body += f"<tr>{tds}</tr>"
+    return f"<div class='scroll'><table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>"
+
+
+def _tile(label, value, detail=""):
+    return f"<div class='tile'><div class='l'>{label}</div><div class='v'>{value}</div><div class='d'>{detail}</div></div>"
+
+
+def _pct(v):
+    return "–" if v is None or (isinstance(v, float) and np.isnan(v)) else f"{v:.0%}"
+
+
+def _page(title, body):
+    return (f"<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' "
+            f"content='width=device-width,initial-scale=1'><title>{html.escape(title)}</title><style>{CSS}</style>"
+            f"</head><body><main>{body}</main></body></html>")
+
+
+def _banner(meta):
+    out = ""
+    if meta.get("synthetic"):
+        out += ("<div class='banner info'><b>Synthetic demo data.</b> Generated by <code>smartbin.simulate</code> with "
+                "known ground truth - the numbers are NOT Bossard's. They show what the pipeline produces.</div>")
+    if meta.get("sample_mode"):
+        out += ("<div class='banner warn'><b>Sample mode.</b> The input is a random-row sample: ratios are usable, "
+                "rates per week are deflated, crosstalk and pick-size-from-deltas are skipped.</div>")
+    return out
+
+
+def _fig(res, key):
+    return _img(res.figures.get(key)) if res else ""
+
+
+def build(results: dict, funnel: pd.DataFrame, checks: pd.DataFrame, columns: pd.DataFrame, meta: dict, cfg):
+    rep = cfg.paths.reports
+    scales = sorted({s for s in meta.get("scales", [])})
+    # ------------------------------------------------------------------------- index
+    m1 = results.get("m1_baseline")
+    tiles = ""
+    for s in scales:
+        f = m1.facts.get(s, {}) if m1 else {}
+        tiles += _tile(f"{s}: scales meeting both targets today", _pct(f.get("share_in_target")),
+                       f"median TOO_MANY fraction {f.get('frac_too_many_median', float('nan')):.2f}")
+    links = " ".join(f"<a href='dashboard_{s}.html'>Dashboard {s} &rarr;</a>" for s in scales)
+    if (rep / "pick_size_explorer.html").exists():
+        links += " <a href='pick_size_explorer.html'>Pick-size explorer (interactive) &rarr;</a>"
+    fun = funnel.copy()
+    fun["pct_removed"] = fun.rows_removed / fun.rows_remaining.iloc[0]
+    body = (f"<h1>SmartBin Cloud · sensor sensitivity optimisation</h1>"
+            f"<p class='sub'>Run {meta['run_at']} · input <code>{html.escape(meta['measurements'])}</code> · "
+            f"{meta['rows']:,} rows · {meta['devices']:,} scales</p>{_banner(meta)}<nav>{links}</nav>"
+            f"<div class='tiles'>{tiles}</div>")
+    v = results.get("m0_validation")
+    if v:
+        body += (f"<h2>Method validation (synthetic ground truth)</h2><p class='q'>Planted effects the pipeline must "
+                 f"rediscover before we trust it on real data: {v.facts['passed']}/{v.facts['total']} passed.</p>"
+                 + _table(v.tables["checks"]))
+    body += ("<h2>1 · Data cleaning</h2><p class='q'>Stage A deletes broken rows. Stage B only flags rows that "
+             "cannot be used for the KPI analysis - they stay in the event chain (weight deltas, crosstalk).</p>"
+             + _img(meta.get("funnel_fig")) + _table(fun, ["step", "rule", "tier", "action", "rows_removed",
+                                                           "pct_removed", "rows_remaining", "devices_remaining",
+                                                           "rationale"]))
+    body += ("<h2>2 · Trust but verify</h2><p class='q'>D ONE's pre-computed fields, recomputed by us.</p>"
+             + _table(checks))
+    body += "<h2>3 · Column decisions</h2>" + _table(columns)
+    sm = meta.get("sens_by_month")
+    if sm is not None and len(sm):
+        body += ("<h2>4 · The natural experiment</h2><p class='q'>Scales per sensitivity level per month - "
+                 "March is the baseline, the switches come later.</p>"
+                 + _table(sm.pivot_table(index="month", columns="sensitivity", values="devices", fill_value=0)
+                          .reset_index()))
+    (rep / "index.html").write_text(_page("SmartBin optimisation - overview", body), encoding="utf-8")
+
+    # ------------------------------------------------------------------------- dashboards
+    for s in scales:
+        (rep / f"dashboard_{s}.html").write_text(_page(f"SmartBin {s} dashboard", _dashboard(results, s, meta, cfg)),
+                                                 encoding="utf-8")
+    _summary(results, funnel, meta, cfg)
+
+
+def _dashboard(R, s, meta, cfg):
+    g = lambda k: R.get(k)
+    m1, m2, m3, m4, m5, m6, m7 = (g(k) for k in ["m1_baseline", "m2_sensitivity", "m3_importance", "m4_location",
+                                                 "m5_pick_size", "m6_crosstalk", "m7_policy"])
+    b = m1.facts.get(s, {}) if m1 else {}
+    out = (f"<h1>{s} scales</h1><p class='sub'><a href='index.html'>&larr; overview</a> · "
+           f"Bossard targets: TOO_MANY fraction &le; {cfg.kpi.tm_target}, TOO_FEW &le; {cfg.kpi.tf_target}/week</p>"
+           + _banner(meta))
+    rec = m7.facts.get(s, {}) if m7 and m7.status == "ok" else {}
+    tiles = (_tile("Scales analysed (baseline)", f"{int(b.get('devices', 0)):,}") +
+             _tile("Median TOO_MANY fraction today", f"{b.get('frac_too_many_median', float('nan')):.2f}",
+                   f"target &le; {cfg.kpi.tm_target}") +
+             _tile("Median TOO_FEW per week today", f"{b.get('too_few_per_week_median', float('nan')):.2f}",
+                   f"target &le; {cfg.kpi.tf_target}") +
+             _tile("Scales in target today", _pct(b.get("share_in_target"))))
+    if rec:
+        best = max(rec["share_in_target"], key=lambda k: rec["share_in_target"][k] if "oracle" not in k else -1)
+        tiles += _tile("Best deployable policy", best.split(" ", 1)[1], f"{_pct(rec['share_in_target'][best])} in target, "
+                       f"{rec['meas_change_pct'][best]:+.0f}% measurements")
+    out += f"<div class='tiles'>{tiles}</div>"
+
+    out += "<h2>1 · Today: how the scales perform at the default setting</h2>"
+    if m1:
+        out += f"<p class='q'>{m1.question}</p>" + _fig(m1, f"device_map_{s}") + _fig(m1, "activity")
+        at = m1.tables.get("activity_quintiles")
+        if at is not None and len(at):
+            out += _table(at[at.scale_type == s])
+    out += "<h2>2 · Which parameters matter (task 1 + 2)</h2>"
+    if m3 and m3.status == "ok":
+        out += f"<p class='q'>{m3.question}</p>" + _fig(m3, f"importance_{s}") + _fig(m3, "importance_all_scales")
+        v = m3.tables["verdict"]
+        out += _table(v[v.scope.isin([s, "all scales"])], ["scope", "parameter", "frac_too_many", "too_few_per_week",
+                                                           "verdict"])
+        wc = m3.tables.get("weight_check")
+        if wc is not None and len(wc):
+            out += "<h3>Weight in the box: same scale, same setting, lighter vs heavier box</h3>" + _table(wc[wc.scale_type == s])
+    out += "<h2>3 · The sensitivity knob (task 3)</h2>"
+    if m2:
+        out += (f"<p class='q'>{m2.question}</p><div class='grid2'>{_fig(m2, 'tradeoff_population')}"
+                f"{_fig(m2, f'event_study_{s}')}</div>" + _fig(m2, "within_device_effects") +
+                _fig(m2, "kpi_vs_sensitivity"))
+        e = m2.tables.get("effects")
+        if e is not None and len(e):
+            e = e[(e.scale_type == s) & e.n_devices.notna()].assign(
+                rate_ratio_tm=lambda d: np.exp(d.beta_tm), rate_ratio_tf=lambda d: np.exp(d.beta_tf))
+            out += ("<h3>Same device, before vs after (difference-in-differences)</h3>" +
+                    _table(e, ["sensitivity", "n_devices", "did_frac_too_many", "did_frac_too_many_lo",
+                               "did_frac_too_many_hi", "rate_ratio_tm", "rate_ratio_tf", "did_meas_per_day"]))
+        an = m2.tables.get("anomaly")
+        if an is not None and len(an):
+            out += ("<h3>Why sensitivity 3 is excluded</h3>" + f"<p class='q'>{html.escape(m2.facts.get(s, {}).get('anomaly_verdict', ''))}</p>"
+                    + _fig(m2, "anomaly_bug") + _fig(m2, "anomaly"))
+            sg = m2.tables.get("anomaly_signature")
+            if sg is not None and len(sg):
+                out += "<h3>Bug test: does the anomaly level fire in loops or at night?</h3>" + _table(sg[sg.scale_type == s])
+    out += "<h2>4 · Location: is the factory effect real?</h2>"
+    if m4 and m4.status == "ok":
+        t = m4.facts.get(s, {})
+        out += (f"<p class='q'>{m4.question}</p><div class='tiles'>"
+                + _tile("Verdict", t.get("verdict", "–"))
+                + _tile("Permutation p-value", f"{t.get('perm_p_frac_too_many', float('nan')):.3f}", "999 shuffles")
+                + _tile("Split-half r", f"{t.get('split_half_r_frac_too_many', float('nan')):.2f}", "ranking reproducible?")
+                + _tile("ICC", f"{t.get('icc_frac_too_many', float('nan')):.2f}", "share of variance between sites")
+                + f"</div><div class='grid2'>{_fig(m4, f'caterpillar_{s}')}{_fig(m4, f'split_half_{s}')}</div>")
+    out += "<h2>5 · Why: crosstalk between neighbouring bins</h2>"
+    if m6 and m6.status == "ok":
+        out += (f"<p class='q'>{m6.question}</p>" + _fig(m6, f"correlogram_{s}") +
+                f"<div class='grid2'>{_fig(m6, 'root_causes')}{_fig(m6, f'location_link_{s}')}</div>"
+                f"<div class='grid2'>{_fig(m6, 'attributable_by_level')}{_fig(m6, 'virtual_racks')}</div>")
+    elif m6:
+        out += f"<p class='sub'>Skipped: {' '.join(m6.notes)}</p>"
+    out += "<h2>6 · Pick size: when does the sensor sleep through a pick?</h2>"
+    if m5:
+        out += f"<p class='q'>{m5.question}</p>"
+        if "explorer_html" in m5.figures:
+            out += "<p><a href='pick_size_explorer.html'>Open the interactive pick-size explorer (choose a sensitivity, see green / red gram zones) &rarr;</a></p>"
+        out += _fig(m5, f"zone_heatmap_{s}") + _fig(m5, f"detection_curve_{s}") + _fig(m5, "item_weight_proxy")
+        zs = m5.tables.get("zone_summary")
+        if zs is not None and len(zs):
+            out += "<h3>Green zone per sensitivity and what it costs</h3>" + _table(zs[zs.scale_type == s])
+        th = m5.tables.get("detection_thresholds")
+        if th is not None and len(th):
+            out += _table(th[th.scale_type == s])
+        out += _fig(m5, "label_audit")
+    out += "<h2>7 · Recommendation and business impact</h2>"
+    if m7 and m7.status == "ok":
+        out += (f"<p class='q'>{m7.question}</p>" + _fig(m7, "policy_comparison") + _fig(m7, f"frontier_{s}"))
+        pc = m7.tables["policy_comparison"]
+        cols = ["policy", "share_in_target", "share_meets_tm", "share_meets_tf", "median_frac", "median_tfw",
+                "share_in_target_kpi2", "median_tm_week", "median_miss_rate", "meas_change_pct",
+                "battery_life_change_pct", "fleet_meas_saved_per_week"]
+        out += ("<p class='sub'>share_in_target = Bossard KPIs (TOO_MANY fraction &le; "
+                f"{cfg.kpi.tm_target}, TOO_FEW &le; {cfg.kpi.tf_target}/week). share_in_target_kpi2 = our KPI 2.0 "
+                f"(TOO_MANY &le; {cfg.kpi2.tm_per_week:g}/week, miss rate &le; {cfg.kpi2.miss_rate:.0%}).</p>"
+                + _table(pc[pc.scale_type == s], [c for c in cols if c in pc.columns]))
+        rc = m7.tables["recommendation"]
+        out += "<h3>Segment table (policy P2)</h3>" + _table(rc[rc.scale_type == s])
+        bt = m7.tables.get("backtest")
+        if bt is not None and len(bt):
+            out += "<h3>Backtest: predicted vs observed for real switchers</h3>" + _table(bt[bt.scale_type == s])
+    notes = []
+    for res in [m1, m2, m3, m4, m5, m6, m7]:
+        if res:
+            notes += [f"<b>{res.name}</b>: {html.escape(n)}" for n in res.notes]
+    out += "<h2>Limitations & notes</h2><ul class='notes'>" + "".join(f"<li>{n}</li>" for n in notes) + "</ul>"
+    return out
+
+
+class _Enc(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, (np.integer,)):
+            return int(o)
+        if isinstance(o, (np.floating,)):
+            return None if np.isnan(o) else float(o)
+        if isinstance(o, (np.ndarray,)):
+            return o.tolist()
+        if isinstance(o, (pd.Timestamp, dt.datetime, dt.date)):
+            return str(o)
+        if isinstance(o, Path):
+            return str(o)
+        return str(o)
+
+
+def _summary(R, funnel, meta, cfg):
+    rep = cfg.paths.reports
+    out = {"meta": {k: v for k, v in meta.items() if k not in ("sens_by_month",)},
+           "funnel": funnel.to_dict(orient="records"),
+           "modules": {k: {"status": v.status, "facts": v.facts, "notes": v.notes,
+                           "figures": [Path(p).name for p in v.figures.values()]} for k, v in R.items() if v}}
+    (rep / "results.json").write_text(json.dumps(out, cls=_Enc, indent=1))
+    L = [f"# Run summary - {meta['run_at']}", "",
+         f"- input: `{meta['measurements']}` - {meta['rows']:,} rows, {meta['devices']:,} scales",
+         f"- mode: {'SAMPLE (random rows)' if meta.get('sample_mode') else 'full event chains'}"
+         f"{' - SYNTHETIC DEMO DATA' if meta.get('synthetic') else ''}",
+         ("- WARNING: SAMPLE MODE - this run only proves the code works on the real file format. "
+          "Per-scale KPIs from random rows are NOT interpretable (a scale has 1-2 rows). Use the full file."
+          if meta.get("sample_mode") else ""),
+         f"- rows in the main KPI analysis: {meta.get('rows_main', 0):,} "
+         f"({meta.get('rows_main', 0) / max(meta['rows'], 1):.0%})", ""]
+    m1, m3, m4, m6, m7, m2 = (R.get(k) for k in ["m1_baseline", "m3_importance", "m4_location", "m6_crosstalk",
+                                                 "m7_policy", "m2_sensitivity"])
+    L = [x for x in L if x != ""] + [""]
+    for s in ([] if meta.get("sample_mode") else meta.get("scales", [])):
+        L.append(f"## {s}")
+        if m1 and s in m1.facts:
+            f = m1.facts[s]
+            L.append(f"- TODAY (sens {cfg.analysis.baseline_sensitivity}): median TOO_MANY fraction "
+                     f"{f['frac_too_many_median']:.2f} (target <= {cfg.kpi.tm_target}), median TOO_FEW "
+                     f"{f['too_few_per_week_median']:.2f}/week; {f['share_in_target']:.0%} of {int(f['devices'])} "
+                     f"scales meet both targets, {f['share_R1']:.0%} are too sensitive (R1).")
+        if m3 and s in m3.facts:
+            f = m3.facts[s]
+            L.append(f"- TASK 2 - influences the result: {', '.join(f['influential']) or '-'}")
+            L.append(f"- TASK 1 - no / marginal influence: {', '.join(f['marginal']) or '-'}")
+        if m2 and isinstance(m2.facts.get(s), dict) and "did_frac_too_many" in m2.facts[s]:
+            f = m2.facts[s]
+            pts = ", ".join(f"8->{int(k)}: {v:+.2f}" for k, v in f["did_frac_too_many"].items()
+                            if v == v and k != cfg.analysis.baseline_sensitivity)
+            L.append(f"- SENSITIVITY (same device, DiD) change in TOO_MANY fraction: {pts}")
+        if m1 and s in m1.facts and "activity_spearman_tm_fraction" in m1.facts[s]:
+            f = m1.facts[s]
+            lo, hi = f["tm_fraction_least_vs_most_used"]
+            L.append(f"- USAGE: TOO_MANY fraction vs real picks per week Spearman {f['activity_spearman_tm_fraction']:.2f}; "
+                     f"least-used fifth {lo:.2f} vs most-used fifth {hi:.2f} at the same setting")
+        if m4 and s in m4.facts:
+            f = m4.facts[s]
+            L.append(f"- LOCATION: {f['verdict']} (permutation p = {f['perm_p_frac_too_many']:.3f}, split-half r = "
+                     f"{f['split_half_r_frac_too_many']:.2f}, ICC = {f['icc_frac_too_many']:.2f}, after removing usage "
+                     f"{f.get('icc_frac_too_many_activity_adjusted', float('nan')):.2f}; ICC of TOO_MANY/week "
+                     f"{f.get('icc_log_too_many_per_week', float('nan')):.2f})")
+        if m6 and m6.status == "ok" and s in m6.facts:
+            f = m6.facts[s]
+            L.append(f"- NEIGHBOUR ACTIVITY: {f.get('neighbour_induced_share', 0):.0%} of TOO_MANY at baseline coincide with a "
+                     f"real pick at another scale of the site (beyond chance); real picks show "
+                     f"{f.get('co_picking_share_ok', float('nan')):.0%} (workers pick several bins in a row); own echo "
+                     f"{f.get('own_echo_share', 0):.0%} -> mechanism: {f.get('mechanism', '?')}"
+                     + (f"; explains {f['location_r2_explained']:.0%} of location differences"
+                        if 'location_r2_explained' in f else ""))
+        if m7 and m7.status == "ok" and s in m7.facts:
+            f = m7.facts[s]
+            L.append("- TASK 3 - policies (in target Bossard KPI | in target KPI 2.0 | median miss rate | "
+                     "change in measurements | battery):")
+            for p, v in f["share_in_target"].items():
+                k2 = f.get("share_in_target_kpi2", {}).get(p, float("nan"))
+                ms = f.get("median_miss_rate", {}).get(p, float("nan"))
+                L.append(f"    - {p}: {v:.0%} | {k2:.0%} | {ms:.0%} | {f['meas_change_pct'][p]:+.0f}% | "
+                         f"{f['battery_life_change_pct'][p]:+.0f}%")
+        L.append("")
+    if m7 and m7.status == "ok":
+        L.append("## Achievable TOO_MANY target (median, while TOO_FEW <= target)")
+        for a in m7.facts.get("achievable_target", []):
+            L.append(f"- {a['scale_type']}: {a['best_achievable_median_frac']:.2f} at sensitivity {a['at_level']:.0f}")
+    L.append("\n## Module status")
+    for k, v in R.items():
+        if v:
+            L.append(f"- {k}: {v.status}" + (f" - {v.notes[0]}" if v.status != "ok" and v.notes else ""))
+    (rep / "run_summary.md").write_text("\n".join(L), encoding="utf-8")
