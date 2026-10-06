@@ -73,6 +73,16 @@ def run(ds: pd.DataFrame, dw: pd.DataFrame, cfg, con=None, sample: bool = False)
     sg = r.tables.get("anomaly_signature")
     if sg is not None and len(sg):
         r.figures["anomaly_bug"] = _bug_chart(sg, cfg, r)
+    # (e) the same loop signature on ANY level (FLAG): scales that re-trigger themselves ------------
+    if con is not None and not sample:
+        lf = loop_flags(con, cfg)
+        r.tables["loop_flags"] = lf
+        tot = lf.n_auto.sum()
+        r.facts["loops"] = {
+            "scales_flagged": int(lf[lf.loop].deviceid.nunique()), "scales_with_auto": int(lf.deviceid.nunique()),
+            "share_of_automatic_weighings": float(lf[lf.loop].n_auto.sum() / tot) if tot else None,
+            "on_anomaly_level": float(lf[lf.loop & lf.sensitivity.isin(cfg.cleaning.anomaly_levels)].n_auto.sum() / tot)
+            if tot else None}
 
     # facts --------------------------------------------------------------------------------
     for scale, g in curve.groupby("scale_type"):
@@ -437,6 +447,28 @@ def _anomaly_chart(anom, cfg, r):
     ax.legend()
     ax.set_title(f"Why sensitivity {lv} is studied separately")
     return viz.save(fig, r.fig_path(cfg.paths.figures, "anomaly"))
+
+
+def loop_flags(con, cfg) -> pd.DataFrame:
+    """
+    Trigger-loop detector, one row per scale and level. A scale-level is flagged when more than
+    `flags.loop_min_share` of its automatic wake-ups follow the previous one within `flags.loop_max_gap_s`
+    seconds AND it wakes up more than `flags.loop_min_per_day` times a day: the level-3 signature, on any level.
+    """
+    f = cfg.flags
+    d = con.execute(f"""
+        WITH auto AS (
+            SELECT deviceid, scale_type, sensitivity, location_label, day,
+                   ts - lag(ts) OVER (PARTITION BY deviceid ORDER BY ts) AS gap
+            FROM events WHERE is_auto AND scale_type IS NOT NULL AND sensitivity IS NOT NULL)
+        SELECT deviceid, scale_type, sensitivity, any_value(location_label) AS location_label,
+               count(*) AS n_auto, count(DISTINCT day) AS days,
+               avg(CASE WHEN gap <= {float(f.loop_max_gap_s)} THEN 1.0 ELSE 0 END) AS share_retrigger
+        FROM auto GROUP BY ALL HAVING count(DISTINCT day) >= {int(f.loop_min_days)}
+    """).df()
+    d["auto_per_day"] = d.n_auto / d.days
+    d["loop"] = (d.share_retrigger > f.loop_min_share) & (d.auto_per_day > f.loop_min_per_day)
+    return d
 
 
 def _anomaly_signature(con, cfg):

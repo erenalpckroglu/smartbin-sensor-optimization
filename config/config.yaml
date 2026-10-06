@@ -61,6 +61,12 @@ crosstalk:
   rack_min_near: 5
   rack_min_lift: 3.0
 
+flags:                          # FLAG: what the sensitivity knob cannot fix
+  loop_max_gap_s: 120           # a wake-up within 2 min of the previous one = re-trigger
+  loop_min_share: 0.5           # more than half of the wake-ups are re-triggers ...
+  loop_min_per_day: 20          # ... and more than 20 wake-ups a day = trigger loop (level-3 signature, any level)
+  loop_min_days: 5              # judge a scale-level only after 5 days with automatic weighings
+
 policy:
   levels: [1, 2, 4, 5, 6, 7, 8]
   min_switchers: 15             # min devices to estimate the effect of moving 8 -> k
@@ -68,6 +74,7 @@ policy:
   n_cycles: 8
   tf_safety: 0.5                # only lower sensitivity if TOO_FEW/week <= 0.5 * target
   seed: 11
+  replications: 5               # simulated rules are run 5x per scale; KPIs are averaged over the replications
 
 battery:                        # ASSUMPTIONS - shown next to every battery number
   measurement_seconds: 2.0      # active time per measurement (unknown, sensitivity-tested 1-5 s)

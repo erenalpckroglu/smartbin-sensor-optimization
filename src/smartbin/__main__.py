@@ -4,6 +4,7 @@ Command line:
     python -m smartbin run --measurements data/raw/measurements_10mb.csv --reports reports/smoke
     python -m smartbin simulate --out data/synthetic --devices 2000
     python -m smartbin demo                      # simulate + run on synthetic data -> reports/demo
+    python -m smartbin policy --reports reports/bossard   # re-run only the recommendation (M7) from saved tables
 """
 from __future__ import annotations
 
@@ -28,6 +29,9 @@ def main(argv=None):
     s.add_argument("--out", default="data/synthetic")
     s.add_argument("--devices", type=int, default=2000)
     s.add_argument("--seed", type=int, default=7)
+    q = sub.add_parser("policy", help="re-run only the recommendation (M7) from the saved tables of a full run")
+    q.add_argument("--config", default="config/config.yaml")
+    q.add_argument("--reports")
     d = sub.add_parser("demo", help="simulate + run (no confidential data needed)")
     d.add_argument("--devices", type=int, default=2000)
     a = p.parse_args(argv)
@@ -35,7 +39,10 @@ def main(argv=None):
     if a.cmd == "simulate":
         sim.main(["--out", a.out, "--devices", str(a.devices), "--seed", str(a.seed)])
         return
-    from .pipeline import run
+    from .pipeline import run, run_policy
+    if a.cmd == "policy":
+        run_policy(a.config, a.reports)
+        return
     if a.cmd == "run":
         run(a.config, a.measurements, a.metadata, a.preprocessing, a.reports, a.interim, a.memory_limit, a.threads)
     elif a.cmd == "demo":

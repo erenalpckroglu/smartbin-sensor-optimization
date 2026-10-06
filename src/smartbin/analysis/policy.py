@@ -13,6 +13,12 @@ Policies compared on the SAME scales:
   P3 adaptive rule    every 2 weeks: too many misses -> +1 ; too many empty measurements AND
                       misses comfortably low -> -1 ; else hold   (simulated with real-world noise)
   P4 oracle           best level per scale with perfect knowledge (upper bound, not deployable)
+  P5 one setting      best single level per scale type for KPI 2.0
+  P6 adaptive rule    2-weekly rule for KPI 2.0, every scale starts on 8
+  P7 start 7 + rule   our recommendation: factory default 7, then the KPI 2.0 rule (SET + TUNE)
+  P8 fraction rule    daily, event-driven rule steered by the TOO_MANY fraction: each TOO_FEW -> +1,
+                      median daily fraction > 50 % over the last 7 days (>= 3 days) -> -1, start on 6.
+                      A fraction-driven feedback rule of the kind used in practice, for comparison.
 
 Business translation: measurements/week, battery-life proxy, fleet-wide extrapolation.
 Backtest: predicted vs actually observed KPIs of the switchers (does the simulator tell the truth?).
@@ -28,7 +34,8 @@ from . import ModuleResult
 
 RATE_COLS = {"tm": "n_tm", "aok": "n_aok", "tf": "n_tf", "mok": "n_mok"}
 POLICIES = ["P0 status quo (8)", "P1 one setting", "P2 segment table", "P3 adaptive rule", "P4 oracle",
-            "P5 one setting (KPI 2.0)", "P6 adaptive rule (KPI 2.0)"]
+            "P5 one setting (KPI 2.0)", "P6 adaptive rule (KPI 2.0)", "P7 start 7 + rule (KPI 2.0)",
+            "P8 fraction rule (start 6)"]
 
 
 def _baseline_rates(ds, cfg):
@@ -63,7 +70,7 @@ def _predict(rates: pd.DataFrame, beta_row) -> pd.DataFrame:
                          "tm_w": tm, "aok_w": aok}, index=rates.index)
 
 
-def run(ds, effects, pairs, pick_profile, cfg) -> ModuleResult:
+def run(ds, effects, pairs, pick_profile, cfg, loops=None) -> ModuleResult:
     r = ModuleResult("m7_policy", "Recommendation - which setting policy, and what does it buy?",
                      "What is the best sensitivity policy and how much does it save?")
     if effects is None or len(effects) == 0:
@@ -83,10 +90,20 @@ def run(ds, effects, pairs, pick_profile, cfg) -> ModuleResult:
         rates["segment"] = seg.astype(object).where(seg.notna(), "unknown").astype(str)
         seg_name = "item-weight class"
     betas = _betas(effects, cfg)
-    rng = np.random.default_rng(cfg.policy.seed)
+    # scales caught in a trigger loop on the baseline level: their load is a defect (FLAG), not a setting
+    # question, so the savings of every policy are also reported without them
+    loop_ids = set()
+    if loops is not None and len(loops):
+        lf = loops[loops["loop"].astype(bool) & (loops.sensitivity == base)]
+        loop_ids = set(lf.deviceid)
+    reps = int(getattr(cfg.policy, "replications", 5))
+
+    def rng_for(scale_i, pol):
+        # one independent random stream per scale type and policy: adding a policy never shifts the others
+        return np.random.default_rng([int(cfg.policy.seed), scale_i, POLICIES.index(pol)])
 
     pred_rows, choice_rows, summary, frontier, recs, globals_ = [], [], [], [], [], {}
-    for scale, R in rates.groupby("scale_type"):
+    for scale_i, (scale, R) in enumerate(rates.groupby("scale_type")):
         B = betas[betas.scale_type == scale].set_index("sensitivity").sort_index()
         if base not in B.index or len(B) < 2:
             continue
@@ -127,8 +144,17 @@ def run(ds, effects, pairs, pick_profile, cfg) -> ModuleResult:
                              median_tfw_recommended=tfw.loc[idx, seg_best[seg]].median(),
                              meas_change_pct=(mpd.loc[idx, seg_best[seg]].sum() / mpd.loc[idx, base].sum() - 1) * 100))
         choice["P2 segment table"] = R.segment.map(seg_best)
-        choice["P3 adaptive rule"], time_in_target = _adaptive(R, B, levels, base, cfg, rng)
-        choice["P6 adaptive rule (KPI 2.0)"], time_in_target2 = _adaptive(R, B, levels, base, cfg, rng, mode="kpi2")
+        # simulated rules: `reps` independent replications of every scale (tiled), so the summary is an
+        # average over replications instead of one random path
+        tit, changes, tiled = {}, {}, {}
+        Rt = pd.concat([R] * reps, ignore_index=True)
+        for pol, kw in [("P3 adaptive rule", {}), ("P6 adaptive rule (KPI 2.0)", {"mode": "kpi2"}),
+                        ("P7 start 7 + rule (KPI 2.0)", {"mode": "kpi2", "start": 7.0})]:
+            tiled[pol], tit[pol], changes[pol] = _adaptive(Rt, B, levels, base, cfg, rng_for(scale_i, pol), **kw)
+        pol = "P8 fraction rule (start 6)"
+        tiled[pol], changes[pol] = _daily_fraction_rule(Rt, B, levels, cfg, rng_for(scale_i, pol), start=6.0)
+        for pol, k in tiled.items():
+            choice[pol] = k[:len(R)]            # first replication = the per-scale choice that is exported
         # oracle: in target with fewest measurements, else smallest violation
         score = viol.values * 1e6 + mpd.values
         choice["P4 oracle"] = np.array(levels)[np.argmin(np.where(ok.values, mpd.values, score), axis=1)]
@@ -137,22 +163,28 @@ def run(ds, effects, pairs, pick_profile, cfg) -> ModuleResult:
         globals_[f"{scale}_kpi2"] = float(choice["P5 one setting (KPI 2.0)"].iloc[0])
 
         for pol in POLICIES:
-            k = choice[pol]
-            pick = lambda T: T.values[np.arange(len(T)), [levels.index(x) for x in k]]
+            k = np.asarray(tiled.get(pol, choice[pol]))
+            rr = len(k) // len(R)               # 1 for fixed policies, `reps` for simulated rules
+            col = np.array([levels.index(x) for x in k])
+            pick = lambda T: np.tile(T.values, (rr, 1))[np.arange(len(k)), col]
             f, t, m, tw, ms = pick(frac), pick(tfw), pick(mpd), pick(tmw), pick(miss)
-            m0 = mpd[base].values
+            m0 = np.tile(mpd[base].values, rr)
+            nl = ~np.tile(R.deviceid.isin(loop_ids).values, rr)        # scales without a trigger loop
             row = dict(scale_type=scale, policy=pol, devices=len(R),
                        share_in_target=np.mean((f <= t_tm) & (t <= t_tf)), share_meets_tm=np.mean(f <= t_tm),
                        share_meets_tf=np.mean(t <= t_tf), median_frac=np.median(f), median_tfw=np.median(t),
-                       meas_per_week_total=m.sum() * 7, meas_change_pct=(m.sum() / m0.sum() - 1) * 100,
+                       meas_per_week_total=m.sum() * 7 / rr, meas_change_pct=(m.sum() / m0.sum() - 1) * 100,
                        battery_life_change_pct=(np.median(battery_life_ratio(m0, m, cfg)) - 1) * 100,
                        meas_saved_per_scale_week=(m0 - m).mean() * 7,
                        share_in_target_kpi2=np.mean((tw <= k2.tm_per_week) & (ms <= k2.miss_rate) & (t <= t_tf)),
-                       median_tm_week=np.median(tw), median_miss_rate=np.nanmedian(ms))
-            if pol == "P3 adaptive rule":
-                row["time_in_target"] = time_in_target
-            if pol == "P6 adaptive rule (KPI 2.0)":
-                row["time_in_target"] = time_in_target2
+                       median_tm_week=np.median(tw), median_miss_rate=np.nanmedian(ms),
+                       loop_scales=int((~nl).sum() // rr), loop_share_of_today=1 - m0[nl].sum() / m0.sum(),
+                       meas_change_pct_without_loops=(m[nl].sum() / m0[nl].sum() - 1) * 100,
+                       meas_saved_per_scale_week_without_loops=(m0[nl] - m[nl]).mean() * 7)
+            if pol in tit:
+                row["time_in_target"] = tit[pol]
+            if pol in changes:
+                row["setting_changes_per_scale_month"] = changes[pol]
             summary.append(row)
         for pol in POLICIES:
             choice_rows.append(pd.DataFrame({"deviceid": R.deviceid.values, "scale_type": scale, "policy": pol,
@@ -215,18 +247,21 @@ def run(ds, effects, pairs, pick_profile, cfg) -> ModuleResult:
     return r
 
 
-def _adaptive(R, B, levels, base, cfg, rng, mode="bossard"):
+def _adaptive(R, B, levels, base, cfg, rng, mode="bossard", start=None):
     """
-    Simulate the 2-weekly feedback rule with Poisson noise. Returns final levels and mean time-in-target.
+    Simulate the 2-weekly feedback rule with Poisson noise.
+    Returns final levels, mean time-in-target (second half) and setting changes per scale and month.
     mode="bossard": +1 if TOO_FEW/week > 2 ; -1 if TOO_MANY fraction > 0.5 and TOO_FEW comfortably low
     mode="kpi2"   : +1 if miss rate > 10% ; -1 if TOO_MANY/week > 7 and miss rate <= 5%
+    start         : first level of every scale (default: the baseline level 8)
     """
     t_tm, t_tf = cfg.kpi.tm_target, cfg.kpi.tf_target
     k2 = cfg.kpi2
     weeks = cfg.policy.cycle_days / 7
-    idx = np.full(len(R), levels.index(base))
+    first = start if start in levels else base
+    idx = np.full(len(R), levels.index(first))
     rates = {k: _predict(R, B.loc[k]) for k in levels}
-    in_target = []
+    in_target, n_changes = [], 0.0
     for _ in range(cfg.policy.n_cycles):
         cur = np.array(levels)[idx]
         tm = np.array([rates[k].tm_w.values[i] for i, k in enumerate(cur)])
@@ -247,8 +282,53 @@ def _adaptive(R, B, levels, base, cfg, rng, mode="bossard"):
         else:
             up = tf_obs > t_tf
             down = (~up) & (frac_obs > t_tm) & (tf_obs <= cfg.policy.tf_safety * t_tf)
-        idx = np.clip(idx + up.astype(int) - down.astype(int), 0, len(levels) - 1)
-    return np.array(levels)[idx], float(np.mean(in_target[len(in_target) // 2:]))
+        new_idx = np.clip(idx + up.astype(int) - down.astype(int), 0, len(levels) - 1)
+        n_changes += float(np.mean(new_idx != idx))
+        idx = new_idx
+    months = cfg.policy.n_cycles * cfg.policy.cycle_days / 30.4
+    return np.array(levels)[idx], float(np.mean(in_target[len(in_target) // 2:])), n_changes / months
+
+
+def _daily_fraction_rule(R, B, levels, cfg, rng, start=6.0, window=7, min_days=3, threshold=0.5):
+    """
+    Event-driven rule evaluated once per day with Poisson noise (an approximation of a rule that reacts to
+    every incoming weighing):
+      * every TOO_FEW -> one level more sensitive;
+      * otherwise, once at least `min_days` days have passed since the last down-step, the median of the
+        daily TOO_MANY fractions over the last `window` days (or since that step) above `threshold`
+        -> one level less sensitive.
+    Level 3 is not in `levels`, i.e. it is blocked. Returns final levels and setting changes per scale and month.
+    """
+    import warnings
+    days = int(cfg.policy.cycle_days * cfg.policy.n_cycles)
+    L, n = len(levels), len(R)
+    rows = np.arange(n)
+    idx = np.full(n, levels.index(start) if start in levels else L - 1)
+    rates = {k: _predict(R, B.loc[k]) for k in levels}
+    TM = np.column_stack([rates[k].tm_w.values for k in levels]) / 7.0
+    AOK = np.column_stack([rates[k].aok_w.values for k in levels]) / 7.0
+    TF = np.column_stack([rates[k].tfw.values for k in levels]) / 7.0
+    hist = np.full((n, window), np.nan)
+    since = np.zeros(n, dtype=int)
+    n_changes = 0.0
+    for _ in range(days):
+        c_tm = rng.poisson(TM[rows, idx])
+        c_aok = rng.poisson(AOK[rows, idx])
+        c_tf = rng.poisson(TF[rows, idx])
+        auto = c_tm + c_aok
+        hist = np.roll(hist, -1, axis=1)
+        hist[:, -1] = np.where(auto > 0, c_tm / np.maximum(auto, 1), np.nan)
+        since += 1
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            med = np.nanmedian(hist, axis=1)
+        down = (c_tf == 0) & (since >= min_days) & np.isfinite(med) & (med > threshold)
+        new_idx = np.clip(idx + c_tf - down.astype(int), 0, L - 1)
+        hist[down] = np.nan            # the next decision only looks at days after this step
+        since[down] = 0
+        n_changes += float(np.mean(new_idx != idx))
+        idx = new_idx
+    return np.array(levels)[idx], n_changes / (days / 30.4)
 
 
 def _backtest(pairs, rates, betas):

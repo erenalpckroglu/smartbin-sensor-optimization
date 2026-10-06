@@ -116,7 +116,8 @@ def run(config="config/config.yaml", measurements=None, metadata=None, preproces
                                       notes=["Sample mode: per-scale rates are not estimable from random rows -> "
                                              "no what-if simulation. Run on the full file."])
     else:
-        R["m7_policy"] = _safe("m7_policy", policy.run, ds, eff, pairs, prof, cfg)
+        R["m7_policy"] = _safe("m7_policy", policy.run, ds, eff, pairs, prof, cfg,
+                               R["m2_sensitivity"].tables.get("loop_flags"))
     val = _safe("m0_validation", validation.run, R, cfg.paths.measurements, cfg)
     if val is not None:
         R = {"m0_validation": val, **R}
@@ -137,3 +138,31 @@ def run(config="config/config.yaml", measurements=None, metadata=None, preproces
     report.build(R, funnel, checks, cleaning.column_decisions(), meta, cfg)
     log.info("finished in %.0fs -> open %s", time.time() - t0, cfg.paths.reports / "index.html")
     return R
+
+def run_policy(config="config/config.yaml", reports=None):
+    """
+    Re-run only the recommendation module (M7) from the saved outputs of a previous full run:
+    data/processed/device_settings.parquet + the effect, pair and pick-profile tables in <reports>/tables.
+    Overwrites the m7_policy tables and figures and the m7 entry of results.json. Takes seconds, not minutes.
+    """
+    import json
+    from .report import _Enc
+    cfg = load_config(config, **{"paths.reports": reports})
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-7s %(message)s", datefmt="%H:%M:%S")
+    tab = cfg.paths.tables
+    ds = pd.read_parquet(cfg.paths.processed / "device_settings.parquet")
+    eff = pd.read_csv(tab / "m2_sensitivity__effects.csv")
+    pairs = pd.read_csv(tab / "m2_sensitivity__within_device_pairs.csv")
+    prof = pd.read_csv(tab / "m5_pick_size__device_pick_profile.csv")
+    lf_path = tab / "m2_sensitivity__loop_flags.csv"
+    loops = pd.read_csv(lf_path) if lf_path.exists() else None
+    res = _safe("m7_policy", policy.run, ds, eff, pairs, prof, cfg, loops)
+    res.save_tables(tab)
+    rj = cfg.paths.reports / "results.json"
+    if rj.exists():
+        out = json.loads(rj.read_text())
+        out.setdefault("modules", {})["m7_policy"] = {"status": res.status, "facts": res.facts, "notes": res.notes,
+                                                      "figures": [Path(f).name for f in res.figures.values()]}
+        rj.write_text(json.dumps(out, cls=_Enc, indent=1))
+    log.info("m7_policy re-run: %s", res.status)
+    return res
