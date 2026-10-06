@@ -138,11 +138,82 @@ def extract(reports: Path, processed: Path, db: Path | None):
 
     parameter_spread(processed).to_csv(DATA / "parameter_spread.csv", index=False)
 
+    solution_tables(reports, f)
+
     nums = {"rows_raw": res["meta"]["rows"], "scales_raw": res["meta"]["devices"],
             "rows_main": res["meta"]["rows_main"], "facts": facts}
     if db is not None and Path(db).exists():
         nums.update(from_database(Path(db)))
+        nums["levers"] = levers_tested(Path(db), reports)
+    elif (DATA / "numbers.json").exists():        # no database at hand: keep what an earlier run read from it
+        old = json.loads((DATA / "numbers.json").read_text())
+        nums.update({k: v for k, v in old.items() if k not in nums})
     (DATA / "numbers.json").write_text(json.dumps(nums, indent=1, default=float))
+
+
+def solution_tables(reports: Path, fact: pd.DataFrame):
+    """Aggregates behind the recommendation: trigger loops (FLAG), where the rules leave the scales (TUNE)
+    and how missed changes are spread over the scales (WATCH). No row-level data leaves the pipeline."""
+    T = reports / "tables"
+    lf_path = T / "m2_sensitivity__loop_flags.csv"
+    if lf_path.exists():
+        lf = pd.read_csv(lf_path)
+        lf["group"] = np.where(lf.sensitivity == 3, "level 3", "other levels")
+        tot_auto, tot_scales = lf.n_auto.sum(), lf.deviceid.nunique()
+        rows = []
+        for (grp, loop), g in lf.groupby(["group", "loop"]):
+            rows.append(dict(group=grp, loop=bool(loop), scale_levels=len(g), scales=g.deviceid.nunique(),
+                             n_auto=int(g.n_auto.sum()), share_of_automatic=g.n_auto.sum() / tot_auto,
+                             median_auto_per_day=g.auto_per_day.median(), median_share_retrigger=g.share_retrigger.median(),
+                             sites=g.location_label.nunique()))
+        out = pd.DataFrame(rows)
+        out["scales_with_automatic_weighings"] = tot_scales
+        out["loop_scales_any_level"] = lf[lf.loop].deviceid.nunique()
+        out.to_csv(DATA / "loops_summary.csv", index=False)
+        by_type = (lf[lf.loop].groupby(["group", "scale_type"])
+                   .agg(scales=("deviceid", "nunique"), n_auto=("n_auto", "sum"), median_auto_per_day=("auto_per_day", "median"))
+                   .reset_index())
+        by_type.to_csv(DATA / "loops_by_scale_type.csv", index=False)
+        (lf[lf.loop].groupby(["scale_type", "sensitivity"])
+         .agg(scale_levels=("deviceid", "size"), n_auto=("n_auto", "sum"), sites=("location_label", "nunique"))
+         .reset_index().to_csv(DATA / "loops_by_level.csv", index=False))
+    loc_path = T / "m6_crosstalk__by_location.csv"
+    if loc_path.exists():
+        lc = pd.read_csv(loc_path)
+        lc = lc[lc.cls == "TOO_MANY"].copy()
+        lc["coupled"] = lc.n * lc.attributable.clip(lower=0)
+        rows = []
+        for st, g in lc.groupby("scale_type"):
+            g = g.sort_values("coupled", ascending=False)
+            rows.append(dict(scale_type=st, sites=len(g), share_coupled_top10_sites=g.coupled.head(10).sum() / g.coupled.sum(),
+                             attributable_p10=g.attributable.quantile(.1), attributable_median=g.attributable.median(),
+                             attributable_p90=g.attributable.quantile(.9)))
+        pd.DataFrame(rows).to_csv(DATA / "coupling_top_sites.csv", index=False)
+    pp_path = T / "m5_pick_size__device_pick_profile.csv"
+    if pp_path.exists():
+        pp = pd.read_csv(pp_path)
+        pp = pp[pp.picks >= 5]
+        (pp.groupby("scale_type").agg(scales=("deviceid", "size"),
+                                      share_median_pick_below_25g=("median_pick_g", lambda v: (v < 25).mean()),
+                                      share_median_pick_below_10g=("median_pick_g", lambda v: (v < 10).mean()),
+                                      median_of_median_pick_g=("median_pick_g", "median"))
+         .reset_index().to_csv(DATA / "pick_profile_summary.csv", index=False))
+    ch_path = T / "m7_policy__device_choices.csv"
+    if ch_path.exists():
+        ch = pd.read_csv(ch_path)
+        keep = ["P6 adaptive rule (KPI 2.0)", "P7 start 7 + rule (KPI 2.0)", "P8 fraction rule (start 6)"]
+        fl = (ch[ch.policy.isin(keep)].groupby(["policy", "scale_type"]).sensitivity.value_counts(normalize=True)
+              .rename("share").reset_index())
+        fl.to_csv(DATA / "final_levels.csv", index=False)
+    b = fact[fact.sensitivity == 8]
+    rows = []
+    for st, g in b.groupby("scale_type"):
+        tf = g.n_too_few.fillna(0).sort_values(ascending=False)
+        rows.append(dict(scale_type=st, scales=len(g), share_scales_without_too_few=(tf == 0).mean(),
+                         share_of_too_few_from_top10pct=tf.head(int(len(tf) * 0.1)).sum() / tf.sum(),
+                         manual_checks_per_scale_week=(g.n_manual / g.weeks_observed).median(),
+                         share_manual_checks_without_change=g.n_manual_ok.sum() / g.n_manual.sum()))
+    pd.DataFrame(rows).to_csv(DATA / "watch_numbers.csv", index=False)
 
 
 def parameter_spread(processed: Path) -> pd.DataFrame:
@@ -211,7 +282,8 @@ def from_database(db: Path) -> dict:
     h.to_csv(DATA / "weight_change_hist.csv", index=False)
     # when do manual weighings happen? (24 h no-activity checks vs. person-triggered)
     t = q("""SELECT hour, gap_s >= 86400 AS after_24h_idle, count(*) AS n
-             FROM events WHERE exclusion_reason IS NULL AND NOT is_auto AND gap_s IS NOT NULL GROUP BY ALL""")
+             FROM events WHERE exclusion_reason IS NULL AND NOT is_auto AND gap_s IS NOT NULL
+             GROUP BY ALL ORDER BY ALL""")
     t.to_csv(DATA / "manual_check_hours.csv", index=False)
     g = q("""SELECT quantile_cont(gap_s / 3600, [0.05, 0.25, 0.5, 0.75, 0.95]) AS q,
                     avg(CASE WHEN gap_s >= 86400 THEN 1.0 ELSE 0 END) AS share_idle
@@ -229,6 +301,140 @@ def from_database(db: Path) -> dict:
                      count(DISTINCT deviceid) AS scales
               FROM events WHERE scale_type IS NOT NULL GROUP BY ALL ORDER BY ALL""")
     wk.to_csv(DATA / "weekly_levels.csv", index=False)
+    return out
+
+
+def levers_tested(db: Path, reports: Path) -> dict:
+    """Levers tested next to the sensitivity rule (aggregates only, scales caught in a trigger loop left out):
+    - hourly_profile.csv    when empty wake-ups and real picks happen (hour of day, weekend)
+    - quiet_hours_test.csv  'quiet hours' learned per site on March-April, tested on May-June
+    - burst_merge.csv       one trailing weighing per W-minute window instead of one weighing per wake-up
+    - minwait_check.csv     KPIs by minimum wait time / delay (shows why their effect cannot be measured)"""
+    import duckdb
+    con = duckdb.connect(str(db), read_only=True)
+    lf = pd.read_csv(reports / "tables" / "m2_sensitivity__loop_flags.csv")
+    con.register("loopdev", pd.DataFrame({"deviceid": sorted(set(lf.loc[lf.loop, "deviceid"]))}))
+    where = """in_kpi_analysis AND is_auto AND cls IN ('OK', 'TOO_MANY') AND scale_type IN ('6kg', '20kg')
+               AND deviceid NOT IN (SELECT deviceid FROM loopdev)"""
+    out = {}
+
+    # 1) when do empty wake-ups happen compared with real picks?
+    h = con.execute(f"""SELECT scale_type, cls, hour(weighttime) AS hour, isodow(weighttime) >= 6 AS weekend,
+                               count(*) AS n FROM events WHERE {where} GROUP BY ALL ORDER BY ALL""").df()
+    h.to_csv(DATA / "hourly_profile.csv", index=False)
+
+    # 2) quiet hours: per site, the hours of the week that held at most x% of its real picks in March-April
+    d = con.execute(f"""SELECT location_label AS site, scale_type, cls,
+                               (isodow(weighttime) - 1) * 24 + hour(weighttime) AS how,
+                               weighttime < TIMESTAMP '2022-05-01' AS train, count(*) AS n
+                        FROM events WHERE {where} AND location_label IS NOT NULL GROUP BY ALL""").df()
+    rows = []
+    for thr in (0.01, 0.02, 0.05):
+        for (site, st), g in d.groupby(["site", "scale_type"]):
+            tr = g[g.train & (g.cls == "OK")].groupby("how").n.sum().reindex(range(168), fill_value=0)
+            if tr.sum() < 200:
+                continue
+            cum = tr.sort_values(kind="stable").cumsum() / tr.sum()
+            quiet = set(cum[cum <= thr].index)
+            te = g[~g.train]
+            ok, tm = te[te.cls == "OK"], te[te.cls == "TOO_MANY"]
+            if ok.n.sum() == 0 or tm.n.sum() == 0:
+                continue
+            rows.append(dict(threshold=thr, scale_type=st, quiet_hours=len(quiet),
+                             picks_in_quiet=ok[ok.how.isin(quiet)].n.sum(), picks=ok.n.sum(),
+                             empty_in_quiet=tm[tm.how.isin(quiet)].n.sum(), empty=tm.n.sum()))
+    r = pd.DataFrame(rows)
+    qh = (r.groupby(["threshold", "scale_type"])
+          .agg(sites=("quiet_hours", "size"), quiet_hours_per_week=("quiet_hours", "median"),
+               picks_in_quiet=("picks_in_quiet", "sum"), picks=("picks", "sum"),
+               empty_in_quiet=("empty_in_quiet", "sum"), empty=("empty", "sum")).reset_index())
+    qh["share_picks_in_quiet_hours"] = qh["picks_in_quiet"] / qh["picks"]
+    qh["share_empty_avoided"] = qh["empty_in_quiet"] / qh["empty"]
+    qh.to_csv(DATA / "quiet_hours_test.csv", index=False)
+
+    # 3) burst merge: after a weighing, wake-ups within W minutes are collected and weighed once at the end
+    #    of the window (a change is never lost, only reported later). Optionally on a thinned sequence that
+    #    mimics level 7 (causal rate ratios 8 -> 7 for empty wake-ups and caught picks).
+    s = con.execute(f"""SELECT deviceid, scale_type, epoch(weighttime) AS t, cls = 'OK' AS ok
+                        FROM events WHERE {where} ORDER BY deviceid, t""").df()
+    dev, T, OK, ST = s.deviceid.values, s.t.values.astype(float), s.ok.values.astype(bool), s.scale_type.values
+    cuts = np.flatnonzero(np.r_[True, dev[1:] != dev[:-1], True])
+    ke = pd.read_csv(DATA / "knob_effects.csv")
+    k7 = ke[ke.sensitivity == 7].set_index("scale_type")
+    rng = np.random.default_rng(7)
+
+    def merge(W, level7=False):
+        acc = {st: dict(n=0, n_ok=0, perf=0, perf_ok=0, delays=[]) for st in SCALES}
+        for a, b in zip(cuts[:-1], cuts[1:]):
+            st, t, ok = ST[a], T[a:b], OK[a:b]
+            if level7:
+                keep = rng.random(b - a) < np.where(ok, np.exp(k7.loc[st, "beta_aok"]), np.exp(k7.loc[st, "beta_tm"]))
+                t, ok = t[keep], ok[keep]
+            o, n = acc[st], len(t)
+            o["n"] += n
+            o["n_ok"] += int(ok.sum())
+            i = 0
+            while i < n:
+                o["perf"] += 1
+                o["perf_ok"] += int(ok[i])
+                end, j = t[i] + W, i + 1
+                while j < n and t[j] <= end:          # wake-ups inside the window -> one trailing weighing
+                    k = j
+                    while k < n and t[k] <= end:
+                        k += 1
+                    o["perf"] += 1
+                    o["perf_ok"] += int(ok[j:k].any())
+                    o["delays"].extend((end - t[j:k][ok[j:k]]).tolist())
+                    j, end = k, end + W
+                i = j
+        res = []
+        for st, o in acc.items():
+            dl = np.array(o["delays"]) / 60 if o["delays"] else np.zeros(1)
+            res.append(dict(window_min=W / 60, scale_type=st, sequence="level 7 (simulated)" if level7 else "today",
+                            weighings_before=o["n"], weighings_after=o["perf"], saved=1 - o["perf"] / o["n"],
+                            empty_saved=1 - (o["perf"] - o["perf_ok"]) / (o["n"] - o["n_ok"]),
+                            picks_reported_later=len(o["delays"]) / max(o["n_ok"], 1),
+                            delay_median_min=float(np.median(dl)), delay_p95_min=float(np.percentile(dl, 95))))
+        return res
+
+    bm = []
+    for W in (300, 600, 900):
+        bm += merge(W)
+    bm += merge(600, level7=True)
+    pd.DataFrame(bm).to_csv(DATA / "burst_merge.csv", index=False)
+    gaps = con.execute(f"""SELECT scale_type, cls, count(*) AS n, avg((gap_s <= 600)::INT) AS share_within_10min,
+                                  median(gap_s) / 60 AS median_gap_min
+                           FROM events WHERE {where} GROUP BY ALL ORDER BY ALL""").df()
+    out["gap_to_previous_weighing"] = gaps.to_dict(orient="records")
+
+    # 4) minimum wait time / delay: KPIs per setting and whether any scale ran on two wait times at one level
+    s_sql = """
+        WITH s AS (
+          SELECT deviceid, scale_type, location_label, coalesce(minwaittime, 1.0) AS minwait,
+                 coalesce(delay, 30.0) AS delay, sensitivity,
+                 count(*) FILTER (WHERE is_auto AND cls = 'TOO_MANY') AS tm, count(*) FILTER (WHERE is_auto AND cls = 'OK') AS aok,
+                 count(*) FILTER (WHERE cls = 'TOO_FEW') AS tf,
+                 (epoch(max(weighttime)) - epoch(min(weighttime))) / 604800.0 AS wks
+          FROM events WHERE scale_type IN ('6kg', '20kg') AND sensitivity IS NOT NULL AND sensitivity <> 3
+          GROUP BY ALL HAVING wks >= 1 AND count(*) >= 20)"""
+    sl = con.execute(s_sql + " SELECT * FROM s").df()      # one row per scale and setting, kept in memory only
+    sl["empty_per_week"], sl["caught_per_week"] = sl.tm / sl.wks, sl.aok / sl.wks
+    sl["missed_share"] = sl.tf / (sl.tf + sl.aok).replace(0, np.nan)
+    rows = []
+    for (st, m, dl), g in sl.groupby(["scale_type", "minwait", "delay"]):
+        if len(g) < 8:
+            continue
+        per_site = g.groupby("location_label").deviceid.nunique().sort_values(ascending=False)
+        rows.append(dict(scale_type=st, minwait=m, delay=dl, scale_levels=len(g), scales=g.deviceid.nunique(),
+                         sites=len(per_site), share_scales_top2_sites=per_site.head(2).sum() / g.deviceid.nunique(),
+                         share_on_level_1=(g.sensitivity == 1).mean(), empty_per_week=g.empty_per_week.median(),
+                         caught_per_week=g.caught_per_week.median(), missed_share=g.missed_share.median()))
+    pd.DataFrame(rows).sort_values(["scale_type", "scale_levels"], ascending=[True, False]).to_csv(
+        DATA / "minwait_check.csv", index=False)
+    both = con.execute(s_sql + """
+        SELECT count(*) FROM (SELECT deviceid, sensitivity FROM s WHERE minwait IN (1, 60)
+                              GROUP BY ALL HAVING count(DISTINCT minwait) = 2)""").fetchone()[0]
+    out["scale_levels_with_both_1_and_60_min_wait"] = int(both)   # same scale, same level, both wait times
     return out
 
 
@@ -617,10 +823,10 @@ def fig_sens3(plt):
     s = rd("sens3_signature")
     groups = ["other devices on baseline", "same devices on baseline", "anomaly devices on anomaly level"]
     labels = ["other\nscales\non 8", "level-3\nscales\non 8", "level-3\nscales\non 3"]
-    spec = [("auto_per_device_day", "Wake-ups per day (average)", 1, "{:.0f}"),
+    spec = [("auto_per_device_day", "Wake-ups per scale-day", 1, "{:.0f}"),
             ("share_retrigger_120s", "Re-trigger ≤ 2 min", 100, "{:.0f}"),   # axis carries the %; short labels
             ("share_night", "At night (22–06 h)", 100, "{:.0f}")]             # do not collide over paired bars
-    fig, axes = plt.subplots(1, 3, figsize=(W, 2.3), gridspec_kw={"wspace": 0.35})
+    fig, axes = plt.subplots(1, 3, figsize=(W, 2.3), gridspec_kw={"wspace": 0.45})
     for ax, (col, title, mult, fmt) in zip(axes, spec):
         for i, st in enumerate(SCALES):
             v = s[s.scale_type == st].set_index("grp").reindex(groups)[col].values * mult
@@ -655,53 +861,98 @@ def fig_check_timing(plt):
 
 def fig_policies(plt):
     p = rd("policies")
-    short = {"P0 status quo (8)": "P0 today", "P1 one setting": "P1", "P2 segment table": "P2",
-             "P3 adaptive rule": "P3", "P4 oracle": "P4", "P5 one setting (KPI 2.0)": "P5",
-             "P6 adaptive rule (KPI 2.0)": "P6"}
-    fig, axes = plt.subplots(1, 2, figsize=(W, 2.5), sharey=True)
+    show = {"P0 status quo (8)": "P0 today", "P1 one setting": "P1 one level (Bossard KPIs)",
+            "P5 one setting (KPI 2.0)": "P5 one level (KPI 2.0)", "P7 start 7 + rule (KPI 2.0)": "P7 recommended",
+            "P8 fraction rule (start 6)": "P8 fraction rule"}
+    # label placement per scale type: (x offset, y offset, horizontal alignment) in points
+    place = {"20kg": {"P0": (-7, 4, "right"), "P1": (8, 0, "left"), "P5": (8, 7, "left"),
+                      "P7": (-9, 9, "right"), "P8": (8, 0, "left")},
+             "6kg": {"P0": (-7, 4, "right"), "P1": (0, -16, "center", "P1 one level\n(Bossard KPIs)"),
+                     "P5": (8, 0, "left"), "P7": (9, 2, "left"), "P8": (8, 0, "left")}}
+    col = "meas_change_pct_without_loops" if "meas_change_pct_without_loops" in p else "meas_change_pct"
+    fig, axes = plt.subplots(1, 2, figsize=(W, 2.6), sharey=True)
     for ax, st in zip(axes, SCALES):
-        x = p[p.scale_type == st]
+        x = p[(p.scale_type == st) & p.policy.isin(show)]
         ax.axhspan(0, 10, color="#eef6ee", zorder=0)
-        ax.text(-88, 6.5, "miss rate ≤ 10% (KPI 2.0)", fontsize=6.6, color="#2f6b2f")
-        ax.scatter(x.meas_change_pct, x.median_miss_rate * 100, s=26, color=C[st], edgecolor="white",
-                   linewidth=0.8, zorder=3)
-        pts = [(short[r.policy], r.meas_change_pct, r.median_miss_rate * 100) for _, r in x.iterrows()]
-        done = set()
-        for lab, px, py in pts:
-            if lab in done:
-                continue
-            near = [l for l, qx, qy in pts if abs(qx - px) < 4 and abs(qy - py) < 4]
-            done.update(near)
-            left = lab == "P0 today" or (st == "6kg" and px < -80)
-            ax.annotate(" / ".join(near), (px, py), textcoords="offset points",
-                        xytext=(-6, 3) if left else (6, 3), fontsize=6.8, color=INK2,
-                        ha="right" if left else "left")
-        ax.set_xlim(-92, 6)
+        ax.text(-97, 1.6, "miss rate ≤ 10% (KPI 2.0)", fontsize=6.6, color="#2f6b2f")
+        for _, r in x.iterrows():
+            rec = r.policy.startswith("P7")
+            ax.scatter(r[col], r.median_miss_rate * 100, s=70 if rec else 30, zorder=4,
+                       color=C[st] if rec else "white", edgecolor=C[st], linewidth=1.6)
+            dx, dy, ha, *txt = place[st][r.policy[:2]]
+            ax.annotate(txt[0] if txt else show[r.policy], (r[col], r.median_miss_rate * 100), textcoords="offset points",
+                        xytext=(dx, dy), ha=ha, va="center", fontsize=6.8, color=INK if rec else INK2,
+                        fontweight="bold" if rec else "normal")
+        ax.set_xlim(-100, 8)
         ax.set_ylim(0, 60)
-        ax.set_xlabel("weighings vs. today (%)")
         ax.set_title(f"{st.replace('kg', ' kg')} scales")
         ax.grid(axis="x", color=GRID)
     axes[0].set_ylabel("real changes missed (%)\nmedian scale")
+    fig.text(0.5, -0.05, "weighings vs. today (%, scales without a trigger loop)", ha="center", fontsize=8.6,
+             color=INK2)
     save(fig, "fig14_policies")
 
 
-def fig_safety_net(plt):
-    p = rd("policies").set_index(["scale_type", "policy"])
-    fig, ax = plt.subplots(figsize=(W * 0.62, 2.2))
-    cats = ["today (level 8)", "P6 adaptive rule", "P6 + nightly\ncheck for every scale"]
-    for i, st in enumerate(SCALES):
-        today = p.loc[(st, "P0 status quo (8)")]
-        p6 = p.loc[(st, "P6 adaptive rule (KPI 2.0)")]
-        v = [today.meas_per_week_total / today.devices, p6.meas_per_week_total / p6.devices]
-        v.append(v[1] + 7)
-        xs = np.arange(3) + (i - .5) * 0.38
-        ax.bar(xs, v, width=0.36, color=C[st])
-        for xx, vv in zip(xs, v):
-            ax.text(xx, vv + 0.6, f"{vv:.0f}", ha="center", fontsize=6.8, color=INK2)
-    ax.set_xticks(range(3), cats)
-    ax.set_ylabel("weighings per scale and week\n(fleet average)")
-    legend_scales(ax, loc="upper right")
-    save(fig, "fig15_safety_net")
+def fig_final_levels(plt):
+    f = rd("final_levels")
+    pols = [("P7 start 7 + rule (KPI 2.0)", "P7 recommended: start 7 + 2-weekly KPI 2.0 rule"),
+            ("P8 fraction rule (start 6)", "P8 fraction rule: daily, steered by the TOO_MANY fraction")]
+    fig, axes = plt.subplots(1, 2, figsize=(W, 2.3), sharey=True)
+    for ax, st in zip(axes, SCALES):
+        xs = np.arange(len(LEVELS))
+        for i, (pol, lab) in enumerate(pols):
+            v = (f[(f.policy == pol) & (f.scale_type == st)].set_index("sensitivity").share
+                 .reindex([float(l) for l in LEVELS]).fillna(0).values * 100)
+            ax.bar(xs + (i - .5) * 0.4, v, width=0.38, color=C[st] if i == 0 else GRAY, label=lab)
+            for xx, vv in zip(xs + (i - .5) * 0.4, v):
+                if vv >= 8:
+                    ax.text(xx, vv + 1.2, f"{vv:.0f}", ha="center", fontsize=6.3, color=INK2)
+        ax.set_xticks(xs, [str(l) for l in LEVELS])
+        ax.set_xlabel("sensitivity level after 16 weeks")
+        ax.set_title(f"{st.replace('kg', ' kg')} scales")
+        ax.set_ylim(0, 55)
+        ax.legend(["P7 recommended", "P8 fraction rule"], loc="upper right" if st == "20kg" else "upper left",
+                  fontsize=7)
+    axes[0].set_ylabel("share of scales (%)")
+    save(fig, "fig15_final_levels")
+
+
+def fig_loops(plt):
+    """Share of the scales vs. share of the automatic weighings that are caught in a trigger loop.
+    Denominators: all scales in the data and all automatic weighings (incl. those of scales whose level or type
+    is unknown and that therefore cannot be checked) - so the loop shares are lower bounds."""
+    s = rd("loops_summary")
+    lab = rd("label_counts")
+    nums = json.loads((DATA / "numbers.json").read_text())
+    all_scales = nums["scales_raw"]
+    all_auto = lab[lab.initiatortype == "AUTOMATIC"].n.sum()
+    loop_scales = s.loop_scales_any_level.iloc[0]
+    n = s.set_index(["group", "loop"]).n_auto
+    l3 = n.get(("level 3", True), 0) / all_auto * 100
+    lo = n.get(("other levels", True), 0) / all_auto * 100
+    sc = loop_scales / all_scales * 100
+    fig, ax = plt.subplots(figsize=(W, 1.55))
+    rows = [("scales", [(sc, CRIT), (100 - sc, GRAY)]),
+            ("automatic weighings", [(l3, CRIT), (lo, "#e9857f"), (100 - l3 - lo, GRAY)])]
+    for y, (_, parts) in zip([1, 0], rows):
+        left = 0
+        for v, c in parts:
+            ax.barh(y, v, left=left, color=c, height=0.56, edgecolor="white", linewidth=1.2)
+            if v >= 4:
+                ax.text(left + v / 2, y, f"{v:.1f}%", ha="center", va="center", fontsize=7.4,
+                        color="white" if c != GRAY else INK)
+            left += v
+    ax.text(sc + 1, 1, f"{sc:.1f}% of the scales ({loop_scales:,})", va="center", fontsize=7.4, color=INK)
+    ax.set_yticks([1, 0], ["scales", "automatic weighings"])
+    ax.set_xlim(0, 100)
+    ax.xaxis.set_major_formatter(plt.matplotlib.ticker.PercentFormatter(100, decimals=0))
+    ax.grid(axis="y", visible=False)
+    ax.grid(axis="x", color=GRID)
+    from matplotlib.patches import Patch
+    fig.legend([Patch(color=CRIT), Patch(color="#e9857f"), Patch(color=GRAY)],
+               ["trigger loop on level 3", "trigger loop on another level", "no loop found"],
+               loc="upper center", bbox_to_anchor=(0.5, -0.02), ncol=3, fontsize=7.4)
+    save(fig, "fig16_loops")
 
 
 def fig_shapley(plt):
@@ -726,21 +977,24 @@ def fig_shapley(plt):
 
 
 def fig_event_study(plt):
+    """Empty wake-ups per scale-day of the switched scales, by week relative to their switch (raw, no stayer
+    correction): shows the drop at the switch and the extra activity in the weeks before it."""
     e = rd("event_study")
-    bands = sorted(e.band.unique())
-    shades = [INK, GRAY_D, GRAY]
+    e["tm_day"] = e.n_tm / e.active_days
+    bands = [("to 1-2 (low)", GRAY, "new level 1–2"), ("to 4-5 (mid)", GRAY_D, "new level 4–5"),
+             ("to 6-7 (high)", INK, "new level 6–7")]
     fig, axes = plt.subplots(1, 2, figsize=(W, 2.2), sharey=True)
     for ax, st in zip(axes, SCALES):
-        for b, col in zip(bands, shades):
+        for b, col, lab in bands:
             x = e[(e.scale_type == st) & (e.band == b)].sort_values("rel_week")
-            ax.plot(x.rel_week, x.frac_too_many, color=col, lw=1.6, marker="o", ms=2.5, label=b)
+            ax.plot(x.rel_week, x.tm_day, color=col, lw=1.6, marker="o", ms=2.5, label=lab)
         ax.axvline(-0.5, color=C[st], lw=1)
         ax.set_xticks(range(-4, 9, 2))
         ax.set_xlabel("weeks relative to the switch")
         ax.set_title(f"{st.replace('kg', ' kg')} scales")
-        ax.set_ylim(0, 1)
-    axes[0].set_ylabel("TOO_MANY fraction\n(pooled per week)")
-    axes[1].legend(loc="lower left", fontsize=6.6)
+        ax.set_ylim(0, 16)
+    axes[0].set_ylabel("empty wake-ups\nper scale-day")
+    axes[1].legend(loc="upper right", fontsize=6.6)
     save(fig, "figA2_event_study")
 
 
@@ -748,7 +1002,7 @@ def draw():
     plt = style()
     for fn in [fig_design, fig_cleaning, fig_one_sided, fig_classes, fig_fraction_vs_counts, fig_usage,
                fig_coupling, fig_blind_zone, fig_zones, fig_location, fig_parameters, fig_knob, fig_sens3,
-               fig_check_timing, fig_policies, fig_safety_net, fig_shapley, fig_event_study]:
+               fig_check_timing, fig_policies, fig_final_levels, fig_loops, fig_shapley, fig_event_study]:
         try:
             fn(plt)
         except FileNotFoundError as e:

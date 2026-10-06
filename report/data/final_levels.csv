@@ -1,0 +1,43 @@
+policy,scale_type,sensitivity,share
+P6 adaptive rule (KPI 2.0),20kg,7.0,0.28322509108189453
+P6 adaptive rule (KPI 2.0),20kg,8.0,0.2762553461111991
+P6 adaptive rule (KPI 2.0),20kg,5.0,0.2200221764612704
+P6 adaptive rule (KPI 2.0),20kg,6.0,0.12624742594645968
+P6 adaptive rule (KPI 2.0),20kg,4.0,0.07856803421511167
+P6 adaptive rule (KPI 2.0),20kg,1.0,0.009187391097734834
+P6 adaptive rule (KPI 2.0),20kg,2.0,0.006494535086329796
+P6 adaptive rule (KPI 2.0),6kg,8.0,0.4706581135661677
+P6 adaptive rule (KPI 2.0),6kg,7.0,0.3237110952720361
+P6 adaptive rule (KPI 2.0),6kg,6.0,0.11071513423616061
+P6 adaptive rule (KPI 2.0),6kg,5.0,0.07507721549061534
+P6 adaptive rule (KPI 2.0),6kg,4.0,0.014730339748158707
+P6 adaptive rule (KPI 2.0),6kg,1.0,0.0032074126870990736
+P6 adaptive rule (KPI 2.0),6kg,2.0,0.001900688999762414
+P7 start 7 + rule (KPI 2.0),20kg,7.0,0.2892444162838587
+P7 start 7 + rule (KPI 2.0),20kg,8.0,0.2686519879613496
+P7 start 7 + rule (KPI 2.0),20kg,5.0,0.22604150166323458
+P7 start 7 + rule (KPI 2.0),20kg,6.0,0.11753524473309045
+P7 start 7 + rule (KPI 2.0),20kg,4.0,0.0796768572786314
+P7 start 7 + rule (KPI 2.0),20kg,1.0,0.01188024710913987
+P7 start 7 + rule (KPI 2.0),20kg,2.0,0.00696974497069539
+P7 start 7 + rule (KPI 2.0),6kg,8.0,0.46364932287954386
+P7 start 7 + rule (KPI 2.0),6kg,7.0,0.3248990258968876
+P7 start 7 + rule (KPI 2.0),6kg,6.0,0.11214065098598242
+P7 start 7 + rule (KPI 2.0),6kg,5.0,0.07709669755286291
+P7 start 7 + rule (KPI 2.0),6kg,4.0,0.015324305060584463
+P7 start 7 + rule (KPI 2.0),6kg,1.0,0.003444998812069375
+P7 start 7 + rule (KPI 2.0),6kg,2.0,0.003444998812069375
+P8 fraction rule (start 6),20kg,1.0,0.45018216378900683
+P8 fraction rule (start 6),20kg,2.0,0.13464280057025185
+P8 fraction rule (start 6),20kg,4.0,0.12260415016632346
+P8 fraction rule (start 6),20kg,5.0,0.12102011721843814
+P8 fraction rule (start 6),20kg,6.0,0.06462854427372089
+P8 fraction rule (start 6),20kg,7.0,0.06225249485189292
+P8 fraction rule (start 6),20kg,8.0,0.04466972913036591
+P8 fraction rule (start 6),6kg,1.0,0.2860536944642433
+P8 fraction rule (start 6),6kg,8.0,0.13209788548348778
+P8 fraction rule (start 6),6kg,7.0,0.12829650748396293
+P8 fraction rule (start 6),6kg,6.0,0.12366357804704205
+P8 fraction rule (start 6),6kg,2.0,0.11499168448562604
+P8 fraction rule (start 6),6kg,5.0,0.11368496079828938
+P8 fraction rule (start 6),6kg,4.0,0.10121168923734854

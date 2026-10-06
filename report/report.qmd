@@ -30,33 +30,30 @@ execute:
 
 # Management summary
 
-**Problem.** Every SmartBin Cloud scale weighs its bin when a vibration sensor wakes it up. A weighing draws about 3,000 times the sleep power and loads the radio network, the IoT cloud and ARIMS. A change the sensor sleeps through leaves a wrong stock level. At the factory default (sensitivity 8) the typical 20 kg scale wakes up empty 13.5 times a week and catches 1.5 real picks; the median TOO_MANY fraction is **0.92** (6 kg scales: 8.5 empty wake-ups, 3.0 picks, fraction **0.74**). Only **6%** of the 20 kg and **19%** of the 6 kg scales meet both Bossard targets.
+**Problem.** Every SmartBin Cloud scale weighs its bin when a vibration sensor wakes it up. A weighing draws about 3,000 times the sleep power and loads the radio network, the IoT cloud and ARIMS. A change the sensor sleeps through leaves a wrong stock level until a later weighing finds it. At the factory default (sensitivity 8) the typical 20 kg scale wakes up empty 13.5 times a week and catches 1.5 real picks; the median TOO_MANY fraction is **0.92** (6 kg scales: 8.5 empty wake-ups, 3.0 picks, fraction **0.74**). Only **6%** of the 20 kg and **19%** of the 6 kg scales meet both Bossard targets.
 
-**Approach.** 7.6 million weighings of 18,455 scales (March–June 2022) were cleaned with an explicit rule book and turned into one record per scale and sensitivity level. Every scale counts once, and 6 kg and 20 kg scales are analysed separately. During the period 7,846 scales were moved away from level 8, so the effect of the setting was measured on the *same* scales before and after their switch, against scales that stayed on 8 (difference-in-differences). The timing of every empty wake-up was compared with picks at other scales of the same site, and detection was measured per pick size. A simulation then compares seven sensitivity policies.
+**Approach.** 7.6 million weighings of 18,455 scales (March–June 2022) were cleaned with an explicit rule book and turned into one record per scale and sensitivity level; 6 kg and 20 kg scales are analysed separately. The effect of the setting was measured on the 7,846 scales that Bossard moved away from level 8 in April, each compared with itself and with scales that stayed on 8 (difference-in-differences). Empty wake-ups were timed against picks at the same site, detection was measured per pick size, a trigger-loop detector was run on every scale, nine policies were simulated and three further levers tested.
 
 **Key findings.**
 
-- **The problem is one-sided.** At level 8, 99% (20 kg) and 98% (6 kg) of the scales meet the TOO_FEW target, but only 6% and 20% meet the TOO_MANY target.
-- **Empty wake-ups follow people working nearby.** At level 8, 60% of the empty wake-ups of 20 kg scales occur within ±14 seconds of a real pick at another scale of the same site; in a control window one minute later the share is only 22%. Beyond chance, **48%** (6 kg: **42%**) of the empty wake-ups are linked to picking at the same site at the same moment. The other half remains unexplained.
-- **The TOO_MANY fraction is the wrong compass.** Moving the same scales from level 8 to level 1 removes 97% (20 kg) and 98% (6 kg) of their empty wake-ups, but lowers the fraction only by 0.23 and 0.20, because the sensor also stops catching real picks (−90% and −96%). On level 1, half or more of all real changes are missed, and 11–17% of the scales never wake up at all.
-- **Rarely used bins look worse, and 20 kg bins are used less.** At the same setting the least-used fifth of the 20 kg bins has a fraction of 1.00, the most-used fifth 0.63. A typical 20 kg bin is picked half as often as a 6 kg bin (1.5 vs 3.0 caught picks per week); this alone explains roughly two thirds of the gap in the fraction between the scale types.
-- **Every scale has a blind zone.** A change below about **23 g (20 kg)** or **5 g (6 kg)** is mostly classed as "no change": such a pick is labelled TOO_MANY when the sensor wakes up and is never reported when it does not. At level 8, picks of 20 g and more are detected in at least 95% of cases on both scale types.
-- **6 kg and 20 kg scales are two different instruments.** The same step from level 8 to 6 removes 56% of the empty wake-ups on 20 kg scales but 79% on 6 kg scales, and costs 3 vs. 6 percentage points of missed changes.
-- **Sensitivity 3 behaves like a defect, not a setting.** Most level-3 wake-ups come in a 90-second loop, a third of them at night. The typical level-3 scale weighs 3–8 times as often as on level 8, and the scales caught in the loop push the average to about 150 wake-ups per scale and day.
-- **The site shows the largest differences.** Sites differ strongly and reproducibly: the middle 80% of the 20 kg sites range from 0.61 to 0.97 in TOO_MANY fraction.
+- **The problem is one-sided.** At level 8, 99% (20 kg) and 98% (6 kg) of the scales meet the TOO_FEW target, but only 6% and 20% the TOO_MANY target.
+- **Almost half of the empty wake-ups coincide with picking at the same site:** beyond chance, **48%** (20 kg) and **42%** (6 kg) come within ±14 seconds of a real pick at another scale of the site, and they follow the working day like real picks (r = 0.99). The other half cannot be attributed to picking nearby.
+- **The TOO_MANY fraction is the wrong compass.** From level 8 to 1 the same scales lose 97–98% of their empty wake-ups, but the fraction falls only by 0.20–0.23, because real picks are lost as well; TOO_FEW per week stays low even when half of the changes are missed.
+- **Rarely used bins look worse.** The least-used fifth of the 20 kg bins has a fraction of 1.00, the most-used fifth 0.63; lower usage explains roughly 60% of the gap between 20 kg and 6 kg scales.
+- **Every scale has a blind zone** below about **23 g (20 kg)** or **5 g (6 kg)**; 53% of the 6 kg scales have a typical pick below 25 g.
+- **6 kg and 20 kg scales behave like two different instruments:** the step 8 → 6 removes 56% vs. 79% of the empty wake-ups for 3 vs. 6 points more missed changes.
+- **A defect, not a setting:** 274 scales (1.5%) were caught in a trigger loop and caused **27% of all automatic weighings** – 219 during a four-week trial of level 3 in April 2022, and 59 on other levels (10% of all automatic weighings).
+- **Site and usage show the largest differences;** box type and item weight hardly matter on 20 kg scales.
 
-**Recommendations and effect.**
+**Answer to the case question: how to set the sensitivity.** The right setting is not in the master data – it depends on how busy a bin is, its neighbours, its pick size and its site, which only show once the scale runs (a table by pick size chose one level for 95–99% of the scales). But every scale reports its empty wake-ups and missed changes every week, so each scale can learn its level:
 
-| Measure | Scope | Effect |
-|------------------------------------------------------------|------------------|-----------------------------|
-| Repair the sensitivity-3 loop (firmware or configuration) | 907 scales, at least 17.5% of all weighings | on average about 150 → 11 wake-ups per scale and day |
-| Set the sensitivity per scale with an adaptive rule (P6), separately for 6 kg and 20 kg | all scales | weighings −63% (20 kg) / −61% (6 kg); median missed changes 11% / 12% |
-| Add a nightly check weighing for every scale | all scales | every missed change visible within 24 h; weighings still −45% / −43% |
-| Steer with KPI 2.0 (TOO_MANY per week ≤ 7, missed changes ≤ 10%) instead of the fraction | reporting | the KPI rewards a correct setting, not a busy bin |
-| Put small parts (< 25 g per pick) on 6 kg scales | bin layout | picks below about 23 g are largely invisible to a 20 kg scale |
-| Test rack decoupling on site; tune high-activity sites first | sites | targets the activity behind about half of the empty wake-ups |
+| Part | Measure | Scope | Effect |
+|---------------|------------------------------------------------------------|------------------|-----------------------------|
+| **Flag** | Daily loop detector; looping scales go to service; level 3 stays off the menu until the firmware is fixed | 274 scales in the data, 59 of them outside level 3 | loops caused 27% of all automatic weighings (10% outside level 3); no trade-off with misses |
+| **Tune** | Start every scale on level 7; every two weeks one step less sensitive if > 7 empty wake-ups a week and ≤ 5% missed, one step more sensitive if > 10% missed or > 2 TOO_FEW a week; 6 kg and 20 kg monitored apart | all scales without a loop | weighings −61% (20 kg) / −55% (6 kg); median missed changes 11% / 12% (simulated status quo 3% / 5%) |
+| **Watch** | KPI 2.0 per scale; keep the 24 h idle check; watch list (12 h check or a higher level) for the 10% of scales that produce 55% / 36% of all TOO_FEW | reporting, few scales | misses found within one to two days; no nightly check for every scale, which would cost 33–40% of the savings |
 
-With the adaptive rule the 110,000 installed scales would perform about **2.6 million fewer weighings per week** (about 24 per scale and week), at a median of 11–12% missed changes instead of 3–5% in the simulated status quo. In the simulation, no policy brings the typical scale to Bossard's TOO_MANY target of 0.5 (best median: 0.67 for 20 kg and 0.59 for 6 kg scales). The setting can only trade empty wake-ups against missed changes; about half of the empty wake-ups are linked to people working nearby, and the other half is still unexplained.
+At the customer sites, parts picked below about 25 g belong on 6 kg scales, and a damping test at the ten sites with the most coupled wake-ups targets the coupled half. Scaled to the 110,000 installed scales, the rule would save roughly **2.1 million weighings per week** – an illustration, not a forecast. The typical scale then misses 11–12% of its changes, just above the 10% limit of KPI 2.0, and no policy reaches Bossard's TOO_MANY target of 0.5 (best median 0.67 / 0.59). Steering by the fraction, one level for all, quiet hours and a longer wait time were tested and rejected (Section 6.5).
 
 # Situation, goal and data
 
@@ -118,11 +115,11 @@ The TOO_MANY fraction divides two numbers that both depend on the setting. @fig-
 
 ## Rarely used bins look worse – and 20 kg bins are used less
 
-At the same setting, the fraction is strongly related to how often a bin is used (@fig-usage, left). The least-used fifth of the 20 kg bins has a median fraction of 1.00, the most-used fifth 0.63 (Spearman correlation between real picks per week and fraction: −0.82; 6 kg: −0.67). A rarely used bin has few real weighings in the denominator, so every empty wake-up weighs more. Usage also explains a large part of the difference between the scale types (@fig-usage, right). The typical 20 kg bin is picked only 1.5 times a week (6 kg: 3.0) and wakes up empty 13.5 times (6 kg: 8.5). With the lower usage of a 20 kg bin alone, a typical 6 kg bin would have a fraction of about 0.85 instead of 0.74 – roughly two thirds of the gap between the scale types. The fraction therefore **penalises slow-moving parts**.
+At the same setting, the fraction is strongly related to how often a bin is used (@fig-usage, left). The least-used fifth of the 20 kg bins has a median fraction of 1.00, the most-used fifth 0.63 (Spearman correlation between real picks per week and fraction: −0.82; 6 kg: −0.67). A rarely used bin has few real weighings in the denominator, so every empty wake-up weighs more. Usage also explains a large part of the difference between the scale types (@fig-usage, right). The typical 20 kg bin is picked only 1.5 times a week (6 kg: 3.0) and wakes up empty 13.5 times (6 kg: 8.5). With the lower usage of a 20 kg bin alone, a typical 6 kg bin would have a fraction of about 0.85 instead of 0.74 – roughly 60% of the gap between the scale types. The fraction therefore **penalises slow-moving parts**.
 
 ![TOO_MANY fraction by usage (left) and the two parts of the fraction for the typical scale at level 8 (right)](figures/fig05_usage.png){#fig-usage width=100%}
 
-## Empty wake-ups follow people working nearby
+## Empty wake-ups coincide with picking at the same site
 
 **Thesis.** An empty wake-up is caused by activity at the rack: a worker who picks parts from one bin shakes the rack or touches the neighbouring bins, and their sensors wake up although nothing was taken from them.
 
@@ -132,9 +129,11 @@ At the same setting, the fraction is strongly related to how often a bin is used
 
 $$a = \frac{p_\text{near} - p_\text{chance}}{1 - p_\text{chance}} = \frac{0.596 - 0.221}{1 - 0.221} = 0.48$$
 
-for 20 kg scales and 0.42 for 6 kg scales: **almost half of the empty wake-ups are linked to picking at the same site at the same moment**. A scale's own "echo" (a wake-up within 5 minutes after its own pick) explains only 1–3%. The remaining 51% (20 kg) and 55% (6 kg) have no such link and remain unexplained.
+for 20 kg scales and 0.42 for 6 kg scales (0.45 across both types): **almost half of the empty wake-ups are linked to picking at the same site at the same moment**. A scale's own "echo" (a wake-up within 5 minutes after its own pick) explains only 1–3%. The remaining 51% (20 kg) and 55% (6 kg) cannot be attributed to picking at the same site and remain unexplained.
 
-**What it does and does not show.** The same peak appears around *real* picks (grey lines; 54% and 53% beyond chance): people pick several bins in a row. The data therefore show that empty wake-ups are **coupled to human activity at the site**, but they cannot separate vibration travelling through the rack from a worker touching the bin, or from a real pick too small to count (next section). A short on-site test with an accelerometer or a damping pad would settle this. The coupling also does not explain why some sites are worse than others (it accounts for only 7% and 14% of the differences between sites).
+**When.** Empty wake-ups also follow the working day like real picks: the hourly profiles of empty wake-ups and caught picks correlate at r = 0.998 (20 kg) and 0.988 (6 kg), and only 2.4% and 2.5% of the empty wake-ups happen at weekends (scales caught in a trigger loop left out). A night or weekend mode would therefore not help (tested in Section 6.5).
+
+**What it does and does not show.** The same peak appears around *real* picks (grey lines; 54% and 53% beyond chance): people pick several bins in a row. The data therefore show that empty wake-ups are **coupled to activity at the site**, but they cannot separate vibration travelling through the rack from a worker touching the bin, or from a real pick too small to count (next section); machines working in shifts would also follow the working day. A short on-site test with an accelerometer or a damping pad would settle this. The coupling also does not explain why some sites are worse than others (it accounts for only 7% and 14% of the differences between sites).
 
 ![Picks at other scales of the same site around empty wake-ups (left, centre) and the share of empty wake-ups with such a pick nearby vs. a control window (right)](figures/fig06_coupling.png){#fig-coupling width=100%}
 
@@ -164,7 +163,7 @@ Levels 1–5 do not reach 95% for any pick size: they detect only 30–93% of th
 
 ## Sites differ strongly and reproducibly
 
-The site shows the largest differences (@fig-location). Among 20 kg scales on level 8, the median TOO_MANY fraction of the sites ranges from 0.61 to 0.97 (10th to 90th percentile; 6 kg: 0.48–0.92). The differences are not chance: 42% (20 kg) and 40% (6 kg) of the variation between scales lies between sites (intraclass correlation), a permutation test with 999 shuffles gives p = 0.001, and two random halves of each site agree closely (split-half r = 0.76 and 0.85). The effect remains after removing differences in usage (ICC 0.44 and 0.40). Possible reasons are rack construction, shelf positions, nearby machines and the way people work; the data contain only the site, not the rack.
+The site shows the largest differences (@fig-location). Among 20 kg scales on level 8, the median TOO_MANY fraction of the sites ranges from 0.61 to 0.97 (10th to 90th percentile; 6 kg: 0.48–0.92). The differences are not chance: 42% (20 kg) and 40% (6 kg) of the variation between scales lies between sites (intraclass correlation), a permutation test with 999 shuffles gives p ≤ 0.001, and two random halves of each site agree closely (split-half r = 0.76 and 0.85). The effect remains after removing differences in usage (ICC 0.44 and 0.40). Possible reasons are rack construction, shelf positions, nearby machines and the way people work; the data contain only the site, not the rack.
 
 ![TOO_MANY fraction per site (median and 95% interval of its scales, level 8)](figures/fig09_location.png){#fig-location width=100%}
 
@@ -174,15 +173,15 @@ The site shows the largest differences (@fig-location). Among 20 kg scales on le
 
 ![Difference in TOO_MANY fraction between the best and the worst group of each parameter (level 8; best → worst group in brackets)](figures/fig10_parameters.png){#fig-params width=100%}
 
-On 20 kg scales the site moves the fraction most (0.34), followed by the sensitivity level (0.25) and the fill level of the box (0.16); box type (0.11) and item weight (0.08) come last. On 6 kg scales the site also leads (0.41), followed by the fill level (0.27), the box type (0.26, only two common types) and the sensitivity (0.24). The fill-level effect is much smaller when the *same* scale changes its fill level: −0.045 (20 kg) and −0.027 (6 kg) when the box gets heavier. The larger cross-sectional difference probably reflects that nearly empty boxes are also rarely used boxes. D ONE's subset `relevant_for_weight_analysis` shows −0.25 and −0.12, because it was selected on scales where "something changes" – that is, on the outcome. Item weight and box type matter little on 20 kg scales; on 6 kg scales only two box types are common, and they are concentrated on different sites.
+On 20 kg scales the site moves the fraction most (0.34), followed by the sensitivity level (0.25) and the fill level of the box (0.16); box type (0.11) and item weight (0.08) come last. On 6 kg scales the site also leads (0.41), followed by the fill level (0.27), the box type (0.26, only two common types) and the sensitivity (0.24). The fill-level effect is much smaller when the *same* scale changes its fill level: −0.045 (20 kg) and −0.027 (6 kg) when the box gets heavier. The larger cross-sectional difference probably reflects that nearly empty boxes are also rarely used boxes. D ONE's subset `relevant_for_weight_analysis` shows −0.25 and −0.12, because it was selected on scales where "something changes" – that is, on the outcome. Item weight and box type matter little on 20 kg scales; on 6 kg scales only two box types are common, and they are concentrated on different sites. Usage – the least- vs. the most-used fifth of the bins (Section 4.4) – spreads about as much as the site (0.37 and 0.43).
 
 | Case question | Answer |
 |----------------------------------------|----------------------------------------------------------------|
 | 1. No or only marginal influence | box type and item weight on 20 kg scales (1–2% of the variance each); fill level within the same scale (−0.03 to −0.05) |
-| 2. Influence on the result | site (largest); sensitivity (causal, Section 5); item weight and usage, especially on 6 kg scales |
-| 3. How to set the sensitivity | per scale with an adaptive rule, separately for both scale types (Section 6) |
+| 2. Influence on the result | site and usage (largest); the sensitivity setting (Section 5); on 6 kg scales also item weight and box type |
+| 3. How to set the sensitivity | per scale, learned from its own weekly KPIs with a two-weekly rule, separately for both scale types – after trigger loops are repaired (Section 6) |
 
-A Shapley decomposition of the explained variance (Appendix B) also puts the site first, but gives the sensitivity only 1.5% of the variance (3.4% of the explained part). This does not mean the knob is weak: most of the data come from level 8, where almost every scale ran in March, so the observed differences between scales are mostly not differences in the setting. Its real strength is measured in the next section.
+A Shapley decomposition of the explained variance (Appendix B) also puts the site first, but gives the sensitivity only 1.5% of the variance (3.4% of the explained part). This does not mean the knob is weak: partly because most of the data come from level 8, where almost every scale ran in March, the observed differences between scales are mostly not differences in the setting. Its real strength is measured in the next section.
 
 # The sensitivity knob
 
@@ -202,7 +201,7 @@ For each of the 7,846 switched scales, the KPIs after the switch were compared w
 | 6 kg: TOO_MANY fraction | −0.05 | −0.08 | −0.11 | −0.16 | −0.15 | −0.20 |
 | Scales (20 kg / 6 kg) | 639 / 1,116 | 639 / 1,134 | 529 / 954 | 453 / 805 | 464 / 906 | 372 / 735 |
 
-The knob is powerful: the first steps (8 → 7 → 6) remove an estimated 56–79% of the empty wake-ups at a cost of 1–6 percentage points of missed changes. The 20 kg estimates are less precise (8 → 6: −24% to −67%, 95% interval). Below level 6, the price in missed changes rises steeply. Levels 2 and 4 are almost equivalent.
+The knob is powerful: the first steps (8 → 7 → 6) remove an estimated 56–79% of the empty wake-ups at a cost of 1–6 percentage points of missed changes. The 20 kg estimates are less precise (8 → 6: −24% to −67%, 95% interval). Below level 6, the price in missed changes rises steeply. Levels 2 and 4 are almost equivalent. One caveat: Bossard seems to have switched some busy scales first – in the weeks before the switch, empty wake-ups per scale and day rose, most for 20 kg scales later moved to level 4–5 (from about 8.5 to 14.8; Appendix B). Part of the drop may therefore be a return to normal, and the first steps are best read as "roughly half to two thirds fewer empty wake-ups".
 
 ## Two different instruments
 
@@ -219,11 +218,15 @@ The same nominal level does not mean the same thing on both scale types:
 
 The 6 kg scales react more strongly to the knob in *both* directions. Whether level *n* stands for the same vibration threshold on both hardware versions is not documented. **Recommendation: calibrate, set and monitor the sensitivity separately for each scale type; never apply one number to both.**
 
-## Sensitivity 3 behaves like a defect, not a setting
+## Trigger loops: a defect, not a setting
 
-The case description advises ignoring level 3. The data show why (@fig-sens3). Together, the 907 scales that ran on level 3 woke up 146 (20 kg) and 162 (6 kg) times per scale and day on average – 13 times as often as the same scales on level 8. The typical (median) level-3 scale was less extreme, with 17 (20 kg) and 32 (6 kg) weighings a day, 3 to 8 times its own level-8 rate: a minority of scales caught in a loop produces most of the wake-ups. The median gap between two wake-ups was 90 seconds, which equals the minimum wait time (60 s) plus the measurement delay (30 s). 73–75% of the wake-ups followed the previous one within 2 minutes, and a third came at night. This is the signature of a trigger loop, not of a sensitivity level. Part of the difference is selection: these scales were already busier on level 8 (5.1 vs. 2.5 weighings per day on 20 kg scales). Level-3 rows make up at least 17.5% of all rows in the data set.
+The case description advises ignoring level 3. The data show why – and that the problem is not only level 3. Level 3 was used during a four-week trial in April 2022 (@fig-design). Together, the 907 scales on that level woke up 146 (20 kg) and 162 (6 kg) times per scale and day on average – 13 times as often as the same scales on level 8 (@fig-sens3). The typical (median) level-3 scale was less extreme, with 17 (20 kg) and 32 (6 kg) weighings a day: a minority of scales caught in a loop produced most of the wake-ups. The median gap between two wake-ups was 90 seconds, which equals the minimum wait time (60 s) plus the measurement delay (30 s); 73–75% of the wake-ups followed the previous one within 2 minutes, and a third came at night. Part of the difference is selection: these scales were already busier on level 8 (5.1 vs. 2.5 weighings per day on 20 kg scales).
 
 ![The level-3 signature: same scales on level 8 vs. on level 3](figures/fig12_sens3.png){#fig-sens3 width=100%}
+
+**A loop detector for every level.** A scale counts as looping on a level if more than half of its wake-ups follow the previous one within 2 minutes and it wakes up more than 20 times a day, judged over at least 5 days. The rule finds **274 scales (1.5%)**: 219 on level 3 – a quarter of the 833 level-3 scales it could judge – and 59 on other levels, mostly on level 8 (4 scales loop on both). The typical looping level-3 scale woke up 670 times a day, the typical other looping scale 291 times. Together these scales produced **27% of all automatic weighings** in the data (@fig-loops); the loops outside level 3 alone produced 10%. With the case's battery assumption (about 2 s per weighing at about 3,000 times the sleep power), a level-3 loop would empty a battery designed for five years in about six weeks, a loop on another level in about 14 weeks. A different sensitivity is not the fix: this is a defect for service and firmware. The looping scales are left out of the policy savings in Section 6.
+
+![Share of the scales and of all automatic weighings that come from a trigger loop](figures/fig16_loops.png){#fig-loops width=100%}
 
 # Recommendation and effect
 
@@ -237,49 +240,68 @@ Bossard's fraction punishes rarely used bins (Section 4.4), and the TOO_FEW targ
 | Share of real changes missed: TOO_FEW / (caught picks + TOO_FEW) | ≤ 10% | the service the customer actually receives |
 | TOO_FEW per week | ≤ 2 | Bossard's own floor, kept |
 
+## Why a rule and not a table
+
+The parameters Bossard knows before installing a bin – box type and item weight – matter little next to site and usage (Section 4.8). What matters – how busy a bin is, what happens on the rack next to it, how small its picks are and how its site behaves – only shows once the scale is running. A lookup table therefore cannot carry the setting: in the simulation, a table by pick-size class chose the same level as one level for all for 95–99% of the scales. But every scale reports the two numbers that decide its setting every week: its empty wake-ups and its missed changes. The recommendation therefore lets each scale learn its level with a simple, auditable feedback rule.
+
 ## Policies compared
 
-A simulation applies seven policies to every scale. Each scale keeps its own behaviour on level 8 (its rates of empty wake-ups, picks and misses), and the causal rate ratios of Section 5 translate this behaviour to any other level. The policies are: **P0** today (level 8); **P1** the best single level for Bossard's KPIs (20 kg: 4, 6 kg: 2); **P2** a table by pick-size class; **P3** an adaptive rule for Bossard's KPIs; **P4** the best level per scale in hindsight (oracle); **P5** the best single level for KPI 2.0 (20 kg: 7, 6 kg: 6); and **P6** an adaptive rule for KPI 2.0. The adaptive rule starts every scale on level 8 and reviews it every two weeks. It goes one level *more* sensitive if the scale missed more than 10% of its changes or had more than 2 TOO_FEW per week, and one level *less* sensitive if it woke up empty more than 7 times a week while missing at most 5%.
+A simulation applies nine policies to every scale. Each scale keeps its own behaviour on level 8 (its rates of empty wake-ups, picks and misses), and the causal rate ratios of Section 5 translate this behaviour to any other level; every rule is run five times with independent random streams. The policies are: **P0** today (level 8); **P1** the best single level for Bossard's KPIs (20 kg: 4, 6 kg: 2); **P2** a table by pick-size class; **P3** an adaptive rule for Bossard's KPIs; **P4** the best level per scale in hindsight (oracle); **P5** the best single level for KPI 2.0 (20 kg: 7, 6 kg: 6); **P6** an adaptive rule for KPI 2.0 that starts on level 8; **P7** the same rule starting on level 7; and **P8** a daily rule that steers by the TOO_MANY fraction. The KPI 2.0 rule reviews every scale every two weeks. It goes one level *more* sensitive if the scale missed more than 10% of its changes or had more than 2 TOO_FEW per week, and one level *less* sensitive if it woke up empty more than 7 times a week while missing at most 5%.
 
-![Simulated policies: weighings saved vs. share of real changes missed (median scale); P0 = simulated status quo](figures/fig14_policies.png){#fig-policies width=100%}
+![Simulated policies: weighings saved vs. share of real changes missed (median scale); scales without a trigger loop](figures/fig14_policies.png){#fig-policies width=100%}
 
 | Policy | Scale | In target (Bossard) | In target (KPI 2.0) | Missed changes (median) | Weighings vs. today | Battery life |
 |-----------------------------|--------|-----------:|-----------:|-----------:|-----------:|----------:|
 | P0 today (simulated) | 20 kg | 2% | 4% | 3% | 0% | 0% |
-| P1 one level for Bossard's KPIs | 20 kg | 19% | 7% | 38% | −83% | +15% |
-| P5 one level for KPI 2.0 | 20 kg | 8% | 20% | 9% | −52% | +9% |
-| **P6 adaptive rule for KPI 2.0** | **20 kg** | 7% | **26%** | **11%** | **−63%** | +8% |
+| P1 one level for Bossard's KPIs | 20 kg | 19% | 7% | 38% | −82% | +15% |
+| P5 one level for KPI 2.0 | 20 kg | 8% | 20% | 9% | −51% | +9% |
+| P6 rule for KPI 2.0, start 8 | 20 kg | 7% | 26% | 11% | −60% | +8% |
+| **P7 rule for KPI 2.0, start 7** | **20 kg** | 7% | **26%** | **11%** | **−61%** | +8% |
+| P8 steer by the fraction | 20 kg | 13% | 3% | 47% | −74% | +14% |
 | P0 today (simulated) | 6 kg | 9% | 7% | 5% | 0% | 0% |
-| P1 one level for Bossard's KPIs | 6 kg | 26% | 4% | 46% | −84% | +12% |
-| P5 one level for KPI 2.0 | 6 kg | 21% | 12% | 19% | −71% | +10% |
-| **P6 adaptive rule for KPI 2.0** | **6 kg** | 12% | **19%** | **12%** | **−61%** | +5% |
+| P1 one level for Bossard's KPIs | 6 kg | 26% | 4% | 46% | −82% | +12% |
+| P5 one level for KPI 2.0 | 6 kg | 21% | 12% | 19% | −69% | +10% |
+| P6 rule for KPI 2.0, start 8 | 6 kg | 12% | 19% | 12% | −55% | +5% |
+| **P7 rule for KPI 2.0, start 7** | **6 kg** | 12% | **18%** | **12%** | **−55%** | +5% |
+| P8 steer by the fraction | 6 kg | 19% | 2% | 46% | −68% | +10% |
 
-The policies that optimise Bossard's KPIs (P1–P4) reach the highest share "in target" but miss 38–53% of all real changes. They achieve the target by switching the sensor practically off. **P6 is the recommended policy**: it cuts the weighings by about 60% while the typical scale misses 11–12% of the changes. It adapts to the site and the usage of every bin without needing these as inputs.
+Weighings are counted without the scales caught in a trigger loop. The policies that optimise Bossard's KPIs (P1–P4) reach the highest share "in target" but miss 38–54% of all real changes: they achieve the target by switching the sensor practically off. Steering by the fraction (P8) is the clearest case: it pushes 45% of the 20 kg scales to level 1 and misses 46–47% of the changes – when a measure becomes a target, it ceases to be a good measure (Strathern, 1997). **P7 is the recommended policy.** It saves as much as P6 with one step less, and a scale changes its level about once a month. The typical scale ends at 11–12% missed changes, just above the 10% limit, because the rule keeps testing the next lower level; a stricter step-down threshold would miss less and save less and should be tuned in a pilot. After 16 weeks, 56% of the 20 kg and 79% of the 6 kg scales sit on level 7 or 8 (@fig-levels): many 6 kg scales handle small picks and cannot afford a lower setting.
 
-The simulation is stricter than the observed data: in the simulated status quo only 2% (20 kg) and 9% (6 kg) of the scales are in target, against 6% and 19% observed (Section 4.1). The policies should therefore be compared with P0 rather than read as absolute shares. A back-test on the real switchers shows that the simulation is somewhat optimistic (in 11 of 12 groups it predicts a lower TOO_MANY fraction than observed, by up to 0.11) and predicts individual scales only roughly (correlation 0.31–0.68 between predicted and observed fraction). The rule should therefore be piloted on a few sites first. The battery effect (+5% to +8%) is smaller than the drop in weighings, because the assumed sleep consumption dominates the energy budget.
+![Where the scales end up after 16 simulated weeks: recommended rule P7 vs. the fraction rule P8](figures/fig15_final_levels.png){#fig-levels width=100%}
 
-## A nightly check as a safety net
+The simulation is stricter than the observed data: in the simulated status quo only 2% (20 kg) and 9% (6 kg) of the scales are in target, against 6% and 19% observed (Section 4.1). The policies should therefore be compared with P0 rather than read as absolute shares. A back-test on the real switchers shows that the simulation is somewhat optimistic (in 11 of 12 groups it predicts a lower TOO_MANY fraction than observed, by up to 0.11) and predicts individual scales only roughly (correlation 0.31–0.68 between predicted and observed fraction). The battery effect (+5% to +8%) is smaller than the drop in weighings, because the assumed sleep consumption dominates the energy budget; the large gains are on the radio network, the cloud and ARIMS, and on the looping scales. If the 110,000 installed scales behaved like the scales in the data, P7 would save roughly 2.1 million weighings per week (about 19 per scale and week) – an illustration, not a forecast.
 
-A lower sensitivity misses more changes, and today a missed change can stay invisible for up to two days (Section 3). A check weighing every night for *every* scale would bound this delay at 24 hours and give ARIMS a reliable stock level each morning. It costs at most seven weighings per scale and week. Combined with P6, the scales would still perform 45% (20 kg) and 43% (6 kg) fewer weighings than today (@fig-safety).
+## Flag, tune, watch
 
-![Average weighings per scale and week (simulation): today, with the adaptive rule P6, and with P6 plus a nightly check](figures/fig15_safety_net.png){#fig-safety width=62%}
+The recommendation combines three parts. **Flag:** the loop detector of Section 5.3 runs every day and sends looping scales to service; level 3 stays off the menu until the firmware is fixed. **Tune:** every scale starts on level 7 and runs the rule P7; 6 kg and 20 kg scales use the same rule but are reported separately. **Watch:** KPI 2.0 is reported per scale, and the existing 24-hour idle check stays as the safety net – it finds 91% of the detected misses (TOO_FEW), one to two days after the last weighing. Misses are concentrated: 41% (20 kg) and 25% (6 kg) of the scales had no TOO_FEW at all on level 8, while the 10% of the scales with the most TOO_FEW produced 55% and 36% of them. These scales go on a watch list with a 12-hour check or a higher level. A nightly check for every scale, as proposed in an earlier draft, would cost 7 weighings per scale and week – 33% (20 kg) and 40% (6 kg) of the savings of P7 – and is not recommended.
+
+## Other levers we tested
+
+| Lever | Test | Result (20 kg / 6 kg) | Verdict |
+|----------------------------|--------------------------------------|-------------------------------------------|--------------|
+| Quiet hours per site | hours of the week with ≤ 1% of a site's picks in March–April (median 109 h), applied to May–June | would avoid 6.4% / 5.5% of the empty wake-ups, while 3.7% / 4.6% of the real picks fall into them | reject |
+| Merge bursts | after a weighing, collect wake-ups for 10 minutes and weigh once at the end | −13% / −14% weighings on today's sequences, −5% / −4% on top of level 7; no change missed, 38% of the picks reported about 5 minutes later | optional firmware item |
+| Longer minimum wait time | 60-minute vs. standard wait time | 76% / 82% of the 60-minute scales sit at two sites and 40% / 49% on level 1; no scale ran on both wait times at one level – effect not measurable | out of scope |
+
+About 36% of all automatic weighings follow the previous weighing of the same scale within 10 minutes, for real picks and empty wake-ups alike: weighings come in bursts of activity. Merging a burst into one weighing saves weighings without missing a change, but it needs a firmware change and adds little once the sensitivity is lowered.
 
 # General recommendations
 
-1. **Repair the sensitivity-3 loop** and remove level 3 from the setting range until it is fixed. Level-3 rows make up at least 17.5% of all weighings in the data.
-2. **Introduce the adaptive rule (P6), separately for 6 kg and 20 kg scales.** Start on level 8, review every two weeks, step down while empty wake-ups exceed 7 per week and misses stay at or below 5%, step up when misses exceed 10% or TOO_FEW exceeds 2 per week. Pilot it on a few sites first and compare against matched control sites.
-3. **Never go below level 6 as a fixed setting.** Below 6, the scales miss 9 to 62 percentage points more of the real changes; level 1 practically switches the sensor off.
+1. **Run a daily loop detector** (more than half of the wake-ups within 2 minutes and more than 20 a day) and send looping scales to service; keep level 3 off the setting menu until the firmware is fixed.
+2. **Start every scale on level 7 and let it learn its level with the two-weekly rule (P7)**: one step less sensitive while empty wake-ups exceed 7 per week and misses stay at or below 5%, one step more sensitive when misses exceed 10% or TOO_FEW exceeds 2 per week. Run it separately for 6 kg and 20 kg scales and pilot it on a few sites against matched control sites first.
+3. **Never use a level below 6 as a fixed setting for all scales.** Below 6, the scales miss 9 to 62 percentage points more of the real changes; level 1 practically switches the sensor off. Only the rule may move individual scales lower while their misses stay low.
 4. **Report KPI 2.0** (TOO_MANY per week, share of changes missed) next to Bossard's KPIs, and stop judging slow-moving bins by the fraction.
-5. **Add a nightly check weighing** (or a 12-hour check for critical parts) so that every missed change becomes visible within a day.
+5. **Keep the 24-hour idle check and add a watch list** (12-hour check or a higher level) for the few scales where misses concentrate, instead of a nightly check for every scale.
 6. **Use the efficient range when placing parts.** Parts picked in amounts below about 25 g belong on 6 kg scales; on 20 kg scales they are largely invisible.
-7. **Test the rack hypothesis on site.** Run an on-site test at a site with many empty wake-ups (accelerometer, damping pads under the bins). Then tune high-activity sites first; the coupling analysis can rank them and infer groups of physically close scales.
+7. **Test the rack hypothesis on site.** Run an accelerometer or damping-pad test at one of the ten sites that hold almost half of the coupled empty wake-ups.
 8. **Clarify three facts with Bossard and the firmware team:** the exact rule and schedule of the idle check, the physical meaning of the sensitivity levels on both scale types, and the definition of the significance threshold.
+9. **Optional firmware item:** merge bursts of wake-ups into one weighing at the end of a 10-minute window.
 
 # Limitations and outlook
 
-The data are **observational**. The before/after design removes everything that is constant per scale as well as calendar effects, but cannot rule out events that happened only to switched scales at the moment of their switch. The figures in Section 4 compare different scales and periods and are descriptive. **TOO_FEW is a lower bound** of the misses (Section 3), so the true miss rates are somewhat higher than reported, for every policy alike. The **site** is the finest location in the data; racks were only inferred from timing. The **coupling analysis** links about half of the empty wake-ups to human activity nearby but cannot separate vibration through the rack from touching the bin or from picks below the threshold; the **other half remains unexplained**. The **idle-check rule** and the **significance threshold** were inferred from the data and should be confirmed by Bossard. The **battery effect** rests on an assumed consumption model (2 s per weighing at 3,000 times the sleep power). The data cover **one season** (March–June 2022). The **policy simulation** is stricter than the observed status quo, somewhat optimistic in the back-test and predicts individual scales only roughly; its numbers serve to compare policies, not as forecasts.
+The data are **observational**. The before/after design removes everything that is constant per scale as well as calendar effects, but cannot rule out events that happened only to switched scales around their switch – and some of them were busier than usual just before it (Section 5.1). The figures in Section 4 compare different scales and periods and are descriptive. **TOO_FEW is a lower bound** of the misses (Section 3), so the true miss rates are somewhat higher than reported, probably for every policy, though not necessarily to the same degree. The **site** is the finest location in the data; racks were only inferred from timing. The **coupling analysis** links about half of the empty wake-ups to picking at the same site but cannot separate vibration through the rack from touching the bin or from picks below the threshold; the **other half remains unexplained**. The **idle-check rule** and the **significance threshold** were inferred from the data and should be confirmed by Bossard. The **battery effect** rests on an assumed consumption model (2 s per weighing at 3,000 times the sleep power). The data cover **one season** (March–June 2022), and the loop figures mostly reflect the April trial of level 3. The **policy simulation** is stricter than the observed status quo, somewhat optimistic in the back-test and predicts individual scales only roughly; its numbers serve to compare policies, not as forecasts. Under the recommended rule the typical scale ends just above the 10% miss limit; the step-down threshold should be tuned in the pilot.
 
-**Outlook:** a pilot of the adaptive rule with matched control sites, an on-site vibration test, a fix for level 3, and KPI 2.0 monitoring in a dashboard (a Power BI prototype exists). A next analysis step is to model the empty wake-ups per site and rack directly, using the inferred groups of neighbouring scales.
+**Outlook:** a pilot of the rule with matched control sites, an on-site vibration test, a firmware fix for level 3 and the loop detector, and KPI 2.0 monitoring in a dashboard (a Power BI prototype exists). A next analysis step is to model the empty wake-ups per site and rack directly, using the inferred groups of neighbouring scales.
 
 {{< pagebreak >}}
 
@@ -295,11 +317,15 @@ The data are **observational**. The before/after design removes everything that 
 - **Detection by pick size:** pick size = weight drop since the previous weighing (at most 7 days earlier). Detected = automatic OK, missed = TOO_FEW. Cells need at least 30 picks. A TOO_FEW can bundle several missed picks, which biases the rates in two opposite directions: fewer misses are counted (detection looks better), and they appear as larger picks (detection of large picks looks worse). A missed pick that is followed by an automatic weighing counts as detected.
 - **Site effect:** intraclass correlation, permutation F-test (999 shuffles of site labels), split-half reliability (random halves of the scales of each site, 200 repetitions); usage adjustment by deciles of real picks per week.
 - **Parameter spread:** median TOO_MANY fraction per group (at least 30 scales; sites at least 20), level 8 only except for the sensitivity; spread = best minus worst group, for sites the 10th–90th percentile of the site medians.
-- **Policy simulation:** per scale, its level-8 rates (shrunk towards the scale-type mean with one pseudo-week) multiplied by the causal rate ratios; weighings and battery life with 2 s per weighing at 3,000 times the sleep power; back-test on the real switchers.
+- **Policy simulation:** per scale, its level-8 rates (shrunk towards the scale-type mean with one pseudo-week) multiplied by the causal rate ratios; rules simulated over 8 two-week cycles with 5 replications; weighings and battery life with 2 s per weighing at 3,000 times the sleep power; back-test on the real switchers. Savings are reported without the scales caught in a trigger loop.
+- **Trigger loops:** per scale and level with at least 5 days of automatic weighings: share of wake-ups within 120 s of the previous one (> 50%) and automatic weighings per day (> 20).
+- **Other levers:** hourly profiles of caught picks and empty wake-ups (scales without a loop); quiet hours learned per site on March–April and tested on May–June; bursts merged on the observed sequences, and on sequences thinned with the rate ratios of level 7; minimum wait time compared across scales and sites.
 - **Reproducibility:** `python -m smartbin run` runs the pipeline; `python report/build_figures.py` builds the figures and the aggregated tables in `report/data/`; `quarto render report/report.qmd` builds this report.
 
 ## B. Additional figures {.unnumbered}
 
-![Shapley decomposition of the explained variance (R²) of the TOO_MANY fraction per period: site first, sensitivity small because most of the data come from level 8](figures/figA1_shapley.png){width=100%}
+![Shapley decomposition of the explained variance (R²) of the TOO_MANY fraction per period: site first, sensitivity small partly because most of the data come from level 8](figures/figA1_shapley.png){width=100%}
 
-![Event study: TOO_MANY fraction of the switched scales by week relative to their switch, grouped by the new level](figures/figA2_event_study.png){width=100%}
+![Event study: empty wake-ups per scale-day of the switched scales by week relative to their switch, grouped by the new level (raw, without the stayer correction)](figures/figA2_event_study.png){width=100%}
+
+A companion deck for the presentation (`presentation/`) shows the same story for a management audience; its charts are built from the same aggregated tables.

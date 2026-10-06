@@ -6,7 +6,19 @@
 > Case from the HSLU MSc *Data-Driven Supply Chain Management & Logistics* module (Bossard AG × D ONE).
 > The confidential fleet data is **not** included. `make demo` runs the full pipeline on a realistic synthetic fleet instead.
 >
-> **Status: work in progress.** The analysis is being walked through step by step (cleaning ✅ → TOO_MANY / TOO_FEW per sensitivity → location → parameters → causal effect → recommendation), with a Power BI report built on top of the pipeline output.
+> **Status: interim findings (presentation 23 Oct 2026).** Pipeline, written report and client deck are complete; the Power BI report is built on top of the pipeline output.
+
+## The answer in one paragraph
+
+The right sensitivity is not in the master data: box type and item weight matter little next to site and usage, and how busy a bin is, what happens on the rack next to it and how small its picks are only show once the scale runs. So every scale learns its level from its own weekly KPIs – **flag, tune, watch**:
+
+| Part | What | Effect in the data / simulation |
+|---|---|---|
+| **Flag** | daily trigger-loop detector, looping scales to service, level 3 off the menu | 1.5% of the scales caused 27% of all automatic weighings (mostly during the April trial of level 3) |
+| **Tune** | start on level 7; every two weeks one step less sensitive if > 7 empty wake-ups a week and ≤ 5% missed, one step more sensitive if > 10% missed or > 2 TOO_FEW a week; 6 kg and 20 kg monitored apart | −61% (20 kg) / −55% (6 kg) weighings, median missed changes 11–12% |
+| **Watch** | KPI 2.0 per scale, the 24 h idle check as safety net, a watch list for the few scales where misses concentrate | misses found within 1–2 days; no nightly check for every scale |
+
+Rejected after testing: one level for all, a table by pick size, steering by the TOO_MANY fraction, quiet hours, a longer minimum wait time (not measurable). Merging bursts of wake-ups is an optional firmware item.
 
 ---
 
@@ -109,16 +121,20 @@ bash run_bossard.sh                                   # macOS / Linux
 powershell -ExecutionPolicy Bypass -File run_bossard.ps1   # Windows
 ```
 
-## Report
+## Report and presentation
 
-`report/report.pdf` is the written report (Quarto with the Typst engine). After a full pipeline run it is rebuilt with:
+- `report/report.pdf` – the written report (Quarto with the Typst engine, 18 pages).
+- `presentation/SmartBin – the story for the client.pptx` – the client deck: 19 slides plus appendix and references, with speaker notes. The slides marked **POWER BI DASHBOARD A / B / C** are placeholders for screenshots of the Power BI report.
+
+After a full pipeline run both are rebuilt with:
 
 ```bash
-python report/build_figures.py --reports reports/bossard --db data/interim/smartbin.duckdb
+python report/build_figures.py --reports reports/bossard --processed data/processed --db data/interim/smartbin.duckdb
 quarto render report/report.qmd
+python presentation/build_deck.py
 ```
 
-`report/data/` holds only aggregated tables, `report/figures/` the charts; `--figures-only` redraws the charts without the raw data.
+`report/data/` holds only aggregated tables, `report/figures/` and `presentation/charts/` the charts. `--figures-only` redraws the report charts without the raw data; the deck needs only `report/data/` (fonts: Inter and Source Serif 4).
 
 Every analytical choice lives in `config/config.yaml`: targets, filters, windows, battery assumptions. No numbers are hard-coded.
 
@@ -132,6 +148,8 @@ src/smartbin/
   analysis/  baseline · sensitivity · importance · location · pick_size · crosstalk · policy · validation
   simulate.py               synthetic fleet with known ground truth
 docs/                       problem & KPIs · data dictionary · cleaning rules · methodology · decision log · report notes
+report/                     written report: build_figures.py (aggregates + charts), report.qmd, report.pdf
+presentation/               client deck: build_deck.py, charts/, the .pptx
 tests/                      KPI / stats / cleaning unit tests + end-to-end recovery test
 ```
 
