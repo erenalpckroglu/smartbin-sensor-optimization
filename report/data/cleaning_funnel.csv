@@ -1,0 +1,16 @@
+step,rule,tier,action,rows_removed,rows_remaining,devices_remaining,rationale
+0,raw file,,,0,7596224,18455,measurements.csv as delivered
+1,A1_mandatory_missing,Mandatory,delete row,0,7596224,18455,"No device, time, weight or trigger type = not a usable measurement"
+2,A2_duplicate,Mandatory,delete row,5733,7590491,18455,Same device + same millisecond twice = logging duplicate; keep one copy (copies with different labels are flagged by B0)
+3,A3_initiator_invalid,Mandatory,delete row,0,7590491,18455,Trigger type must be AUTOMATIC (vibration) or MANUAL (person / 24h)
+4,A4_out_of_window,Mandatory,delete row,0,7590491,18455,D ONE: data before March 2022 used sub-optimal settings
+5,A5_weight_invalid,Mandatory,delete row,5,7590486,18455,Physically impossible weights (scale error)
+11,B0_duplicate_label_conflict,Mandatory,exclude from KPI analysis (kept for deltas),1300,7589186,18455,Same device + same millisecond with two different labels (e.g. OK and TOO_FEW): outcome is ambiguous; the kept copy stays in the weight chain but not in the KPI
+12,B1_label_missing,Mandatory,exclude from KPI analysis (kept for deltas),9886,7579300,18298,No OK / TOO_MANY / TOO_FEW label = the outcome is unknown
+13,B2_label_inconsistent,Mandatory,exclude from KPI analysis (kept for deltas),0,7579300,18298,"TOO_FEW can only come from a MANUAL check, TOO_MANY only from an AUTOMATIC trigger"
+14,B3_sensitivity_missing,Mandatory,exclude from KPI analysis (kept for deltas),399956,7179344,17851,The setting we want to evaluate is unknown (row kept for weight deltas & crosstalk)
+15,B4_trigger_config_nonstandard,Analysis,exclude from KPI analysis (kept for deltas),57400,7121944,17557,Min-wait / delay also change triggering; keep one standard configuration so they can't confound
+16,B5_device_metadata_missing,Analysis,exclude from KPI analysis (kept for deltas),212758,6909186,16840,Scale type / box / location unknown -> cannot be assigned to the 6kg or 20kg analysis
+17,B6_section_not_relevant,Analysis,exclude from KPI analysis (kept for deltas),325938,6583248,15929,Section with < 20 measurements or < 5 days -> KPI per week would be noise
+18,B7_sensitivity_anomaly,Separate,separate study,1327327,5255921,15922,"Lecture: ignore sensitivity 3 - behaves unlike its neighbours; studied separately, not deleted"
+19,B8_sensitivity_low_support,Analysis,exclude from KPI analysis (kept for deltas),287,5255634,15922,Level used by < 30 devices of that scale type -> no stable estimate

@@ -57,7 +57,7 @@ flowchart TB
 | Module | Business question | Method | Why this method |
 |---|---|---|---|
 | **M1 Baseline** | How many scales meet the targets today? | KPIs per scale at the factory default (8) | Shows the size of the gap before any recommendation |
-| **M2 Sensitivity** | What does the knob *really* do? | Same scale before/after a switch, minus the trend of scales that stayed on 8 (**difference-in-differences**). Rates use a **fixed-effects Poisson** rate ratio. **Event study** for the picture | Levels were not assigned at random, so comparing different scales is confounded (sensitivity 3 proves it) |
+| **M2 Sensitivity** | What does the knob *really* do? | Same scale before/after a switch, minus the trend of scales that stayed on 8 (**difference-in-differences**). Rates use a **fixed-effects Poisson** rate ratio. **Event study** for the picture | Levels were not assigned at random, so comparing different scales is confounded (sensitivity 3 shows it) |
 | **M3 Parameter influence** | Which parameters matter, and how much? | Main view: spread between the best and worst group per parameter. Appendix: **Shapley decomposition of R²** (LMG) with a permutation noise floor | The spread is easy to read; Shapley splits explained variance fairly between correlated parameters, but "variance explained" is not "strength of the knob" (decision 20) |
 | **M4 Location** | Is the factory effect real? | ICC, **permutation test** (999 shuffles), **split-half reliability** | Answers "significant?" without distributional assumptions; split-half is understandable for managers |
 | **M5 Pick size** | Below how many grams does a pick go unnoticed? | Weight drop between consecutive weighings → detection curve per level, logistic **D90** | Turns item weight into an actionable threshold |
@@ -109,6 +109,17 @@ bash run_bossard.sh                                   # macOS / Linux
 powershell -ExecutionPolicy Bypass -File run_bossard.ps1   # Windows
 ```
 
+## Report
+
+`report/report.pdf` is the written report (Quarto with the Typst engine). After a full pipeline run it is rebuilt with:
+
+```bash
+python report/build_figures.py --reports reports/bossard --db data/interim/smartbin.duckdb
+quarto render report/report.qmd
+```
+
+`report/data/` holds only aggregated tables, `report/figures/` the charts; `--figures-only` redraws the charts without the raw data.
+
 Every analytical choice lives in `config/config.yaml`: targets, filters, windows, battery assumptions. No numbers are hard-coded.
 
 ## Repository
@@ -128,7 +139,7 @@ tests/                      KPI / stats / cleaning unit tests + end-to-end recov
 
 - **Observational data.** The before/after design removes everything that is constant per scale, and the stayer trend removes calendar effects. It cannot rule out a change that happened *only* to switchers at the moment of their switch.
 - **TOO_FEW is a lower bound of the misses.** Only a manual / 24 h check can produce it; a missed pick followed by an automatic weighing is labelled OK.
-- **TOO_FEW can bundle several missed picks**, so missed picks look larger and the detection thresholds are conservative.
+- **TOO_FEW can bundle several missed picks**, which biases the detection curves in two opposite directions: fewer misses are counted, but they appear at larger pick sizes.
 - **Location = site.** No rack positions exist in the data; virtual racks are inferred and should be confirmed on site.
 - **The battery effect is a model.** A measurement is assumed to take 2 s at 3000× sleep power; this is a config value with a sensitivity check.
 

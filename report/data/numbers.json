@@ -1,0 +1,755 @@
+{
+ "rows_raw": 7596224,
+ "scales_raw": 18455,
+ "rows_main": 5255634,
+ "facts": {
+  "m1_baseline": {
+   "20kg": {
+    "scale_type": "20kg",
+    "devices": 6313,
+    "frac_too_many_median": 0.9166666666666666,
+    "frac_too_many_lo": 0.9127859791417178,
+    "frac_too_many_hi": 0.9212078651685394,
+    "too_few_per_week_median": 0.12477223785227341,
+    "miss_rate_median": 0.02666666666666667,
+    "meas_per_day_median": 2.530745769605734,
+    "too_many_per_week_median": 13.542458388086992,
+    "share_in_target": 0.061777284967527324,
+    "share_meets_tm": 0.0641533343893553,
+    "share_meets_tf": 0.9947726912719784,
+    "share_tm_alarm": 0.7083795342943133,
+    "share_R2": 0.061777284967527324,
+    "share_R1": 0.9329954063044511,
+    "share_R3": 0.002376049421827974,
+    "share_R13": 0.002851259306193569,
+    "activity_spearman_tm_fraction": -0.8215010726965196,
+    "tm_fraction_least_vs_most_used": [
+     1.0,
+     0.6288032454361054
+    ]
+   },
+   "6kg": {
+    "scale_type": "6kg",
+    "devices": 8418,
+    "frac_too_many_median": 0.740521327014218,
+    "frac_too_many_lo": 0.7333333333333333,
+    "frac_too_many_hi": 0.7493649732620321,
+    "too_few_per_week_median": 0.3576734998956076,
+    "miss_rate_median": 0.06666666666666667,
+    "meas_per_day_median": 1.9631293526897742,
+    "too_many_per_week_median": 8.474435154253424,
+    "share_in_target": 0.1893561416013305,
+    "share_meets_tm": 0.20016631028747922,
+    "share_meets_tf": 0.9832501781895937,
+    "share_tm_alarm": 0.40033262057495844,
+    "share_R2": 0.1893561416013305,
+    "share_R1": 0.7938940365882633,
+    "share_R3": 0.010810168686148728,
+    "share_R13": 0.005939653124257543,
+    "activity_spearman_tm_fraction": -0.6726033134748421,
+    "tm_fraction_least_vs_most_used": [
+     0.96,
+     0.530187074829932
+    ]
+   }
+  },
+  "m2_sensitivity": {
+   "20kg": {
+    "levels": [
+     1.0,
+     2.0,
+     4.0,
+     5.0,
+     6.0,
+     7.0,
+     8.0
+    ],
+    "frac_too_many_median": [
+     0.7,
+     0.734,
+     0.746,
+     0.789,
+     0.868,
+     0.867,
+     0.917
+    ],
+    "too_few_per_week_median": [
+     0.381,
+     0.281,
+     0.275,
+     0.143,
+     0.127,
+     0.127,
+     0.125
+    ],
+    "share_in_target": [
+     0.29,
+     0.209,
+     0.18,
+     0.134,
+     0.076,
+     0.067,
+     0.062
+    ],
+    "did_frac_too_many": {
+     "1.0": -0.23,
+     "2.0": -0.125,
+     "4.0": -0.152,
+     "5.0": -0.105,
+     "6.0": -0.07,
+     "7.0": -0.052,
+     "8.0": NaN
+    },
+    "rate_ratio_too_many": {
+     "1.0": 0.029,
+     "2.0": 0.083,
+     "4.0": 0.05,
+     "5.0": 0.138,
+     "6.0": 0.444,
+     "7.0": 0.406,
+     "8.0": 1.0
+    },
+    "rate_ratio_too_few": {
+     "1.0": 4.958,
+     "2.0": 3.651,
+     "4.0": 3.452,
+     "5.0": 2.543,
+     "6.0": 1.758,
+     "7.0": 1.734,
+     "8.0": 1.0
+    },
+    "n_switchers": {
+     "1.0": 372.0,
+     "2.0": 464.0,
+     "4.0": 453.0,
+     "5.0": 529.0,
+     "6.0": 639.0,
+     "7.0": 639.0,
+     "8.0": NaN
+    },
+    "anomaly_verdict": "SETTING ANOMALY: moving to this level INCREASED empty measurements although its neighbouring levels decrease them; BUG SIGNATURE: re-trigger loop (75% of triggers within 2 min vs 9% on the baseline), fires at night (33% vs 13%), 13.6x more triggers per day"
+   },
+   "6kg": {
+    "levels": [
+     1.0,
+     2.0,
+     4.0,
+     5.0,
+     6.0,
+     7.0,
+     8.0
+    ],
+    "frac_too_many_median": [
+     0.5,
+     0.586,
+     0.575,
+     0.633,
+     0.686,
+     0.729,
+     0.741
+    ],
+    "too_few_per_week_median": [
+     0.796,
+     0.561,
+     0.674,
+     0.507,
+     0.385,
+     0.355,
+     0.358
+    ],
+    "share_in_target": [
+     0.389,
+     0.361,
+     0.37,
+     0.296,
+     0.229,
+     0.176,
+     0.189
+    ],
+    "did_frac_too_many": {
+     "1.0": -0.2,
+     "2.0": -0.15,
+     "4.0": -0.161,
+     "5.0": -0.114,
+     "6.0": -0.08,
+     "7.0": -0.053,
+     "8.0": NaN
+    },
+    "rate_ratio_too_many": {
+     "1.0": 0.023,
+     "2.0": 0.067,
+     "4.0": 0.053,
+     "5.0": 0.095,
+     "6.0": 0.211,
+     "7.0": 0.317,
+     "8.0": 1.0
+    },
+    "rate_ratio_too_few": {
+     "1.0": 2.355,
+     "2.0": 1.92,
+     "4.0": 2.111,
+     "5.0": 1.701,
+     "6.0": 1.291,
+     "7.0": 1.192,
+     "8.0": 1.0
+    },
+    "n_switchers": {
+     "1.0": 735.0,
+     "2.0": 906.0,
+     "4.0": 805.0,
+     "5.0": 954.0,
+     "6.0": 1134.0,
+     "7.0": 1116.0,
+     "8.0": NaN
+    },
+    "anomaly_verdict": "SETTING ANOMALY: moving to this level INCREASED empty measurements although its neighbouring levels decrease them; BUG SIGNATURE: re-trigger loop (73% of triggers within 2 min vs 24% on the baseline), fires at night (33% vs 14%), 13.4x more triggers per day"
+   },
+   "n_switchers_total": 7846
+  },
+  "m3_importance": {
+   "all scales": {
+    "influential": [
+     "Location (factory)",
+     "Scale type (6kg / 20kg)",
+     "Item weight (single part)",
+     "Sensitivity setting",
+     "Weight in box (fill level)"
+    ],
+    "marginal": [],
+    "shapley_r2_tm": {
+     "Location (factory)": 0.2566,
+     "Scale type (6kg / 20kg)": 0.0774,
+     "Item weight (single part)": 0.046,
+     "Weight in box (fill level)": 0.0407,
+     "Sensitivity setting": 0.0147
+    },
+    "shapley_r2_tf": {
+     "Location (factory)": 0.1957,
+     "Item weight (single part)": 0.0592,
+     "Scale type (6kg / 20kg)": 0.0516,
+     "Sensitivity setting": 0.0478,
+     "Weight in box (fill level)": 0.0137
+    },
+    "r2_full_tm": 0.43537229312458414
+   },
+   "20kg": {
+    "influential": [
+     "Location (factory)",
+     "Weight in box (fill level)",
+     "Sensitivity setting",
+     "Box type",
+     "Item weight (single part)"
+    ],
+    "marginal": [],
+    "shapley_r2_tm": {
+     "Location (factory)": 0.2632,
+     "Weight in box (fill level)": 0.1177,
+     "Item weight (single part)": 0.0208,
+     "Sensitivity setting": 0.0162,
+     "Box type": 0.0109
+    },
+    "shapley_r2_tf": {
+     "Location (factory)": 0.1546,
+     "Sensitivity setting": 0.052,
+     "Weight in box (fill level)": 0.0479,
+     "Box type": 0.0395,
+     "Item weight (single part)": 0.0246
+    },
+    "r2_full_tm": 0.4287059036500247
+   },
+   "6kg": {
+    "influential": [
+     "Location (factory)",
+     "Item weight (single part)",
+     "Sensitivity setting",
+     "Weight in box (fill level)",
+     "Box type"
+    ],
+    "marginal": [],
+    "shapley_r2_tm": {
+     "Location (factory)": 0.2616,
+     "Item weight (single part)": 0.0784,
+     "Weight in box (fill level)": 0.0276,
+     "Box type": 0.0264,
+     "Sensitivity setting": 0.0149
+    },
+    "shapley_r2_tf": {
+     "Location (factory)": 0.263,
+     "Item weight (single part)": 0.0798,
+     "Sensitivity setting": 0.0461,
+     "Weight in box (fill level)": 0.015,
+     "Box type": 0.0018
+    },
+    "r2_full_tm": 0.40896402479271754
+   },
+   "weight_check": [
+    {
+     "subset": "lecture subset (relevant_for_weight_analysis)",
+     "scale_type": "20kg",
+     "device_settings": 976,
+     "median_delta_frac_tm_heavier": -0.24732682542928341,
+     "ci_lo": -0.2679435483870968,
+     "ci_hi": -0.2348906342171168,
+     "median_delta_tf_week_heavier": 0.23319631750168174
+    },
+    {
+     "subset": "lecture subset (relevant_for_weight_analysis)",
+     "scale_type": "6kg",
+     "device_settings": 1065,
+     "median_delta_frac_tm_heavier": -0.12180476925716255,
+     "ci_lo": -0.14068764568764566,
+     "ci_hi": -0.10192765567765573,
+     "median_delta_tf_week_heavier": 0.014800678177383314
+    },
+    {
+     "subset": "all devices that changed weight bin",
+     "scale_type": "20kg",
+     "device_settings": 2964,
+     "median_delta_frac_tm_heavier": -0.04456944765197107,
+     "ci_lo": -0.05019257306099106,
+     "ci_hi": -0.03967718045843044,
+     "median_delta_tf_week_heavier": 0.0
+    },
+    {
+     "subset": "all devices that changed weight bin",
+     "scale_type": "6kg",
+     "device_settings": 2817,
+     "median_delta_frac_tm_heavier": -0.0267379679144385,
+     "ci_lo": -0.03200061936984228,
+     "ci_hi": -0.020226538062295827,
+     "median_delta_tf_week_heavier": 0.0
+    }
+   ]
+  },
+  "m4_location": {
+   "20kg": {
+    "scale_type": "20kg",
+    "locations": 117,
+    "devices": 6253,
+    "icc_frac_too_many": 0.4172309601357781,
+    "perm_F_frac_too_many": 38.314252427874585,
+    "perm_p_frac_too_many": 0.001,
+    "split_half_r_frac_too_many": 0.7556540954140185,
+    "reliability_frac_too_many": 0.8608234359921794,
+    "icc_too_few_per_week": 0.1757324771627317,
+    "perm_F_too_few_per_week": 12.130541858261754,
+    "perm_p_too_few_per_week": 0.001,
+    "split_half_r_too_few_per_week": 0.7020875250284329,
+    "reliability_too_few_per_week": 0.8249722939679083,
+    "icc_frac_too_many_activity_adjusted": 0.44407347053234825,
+    "icc_log_too_many_per_week": 0.7080028782017813,
+    "icc_log_too_many_per_week_activity_adjusted": 0.563864226341128,
+    "size_vs_tm_spearman": 0.13650005675483048,
+    "size_vs_tm_p": 0.14224020184293582,
+    "spread_p10_p90": [
+     0.607039039039039,
+     0.9668506070885386
+    ],
+    "verdict": "REAL location effect (strong)"
+   },
+   "6kg": {
+    "scale_type": "6kg",
+    "locations": 135,
+    "devices": 8385,
+    "icc_frac_too_many": 0.39706582342607466,
+    "perm_F_frac_too_many": 41.07575727854912,
+    "perm_p_frac_too_many": 0.001,
+    "split_half_r_frac_too_many": 0.8534229429083673,
+    "reliability_frac_too_many": 0.9209154836177726,
+    "icc_too_few_per_week": 0.37426535583706033,
+    "perm_F_too_few_per_week": 37.56594684839461,
+    "perm_p_too_few_per_week": 0.001,
+    "split_half_r_too_few_per_week": 0.8050340109749078,
+    "reliability_too_few_per_week": 0.891987636886803,
+    "icc_frac_too_many_activity_adjusted": 0.39811711818058093,
+    "icc_log_too_many_per_week": 0.7319221872170156,
+    "icc_log_too_many_per_week_activity_adjusted": 0.42268741121707154,
+    "size_vs_tm_spearman": 0.14249894315999512,
+    "size_vs_tm_p": 0.09920563525380403,
+    "spread_p10_p90": [
+     0.47958267854024794,
+     0.9150603827427445
+    ],
+    "verdict": "REAL location effect (strong)"
+   }
+  },
+  "m5_pick_size": {
+   "20kg": {
+    "green_from_g": {
+     "1.0": "never",
+     "2.0": "never",
+     "4.0": "never",
+     "5.0": "never",
+     "6.0": "never",
+     "7.0": "50-100",
+     "8.0": "20-50"
+    },
+    "significance_floor_g": 23.0,
+    "D90_g": {
+     "1.0": 3994.0,
+     "2.0": 2976.8,
+     "4.0": 3355.9,
+     "5.0": 989.4,
+     "6.0": 25.0,
+     "7.0": 24.0,
+     "8.0": 24.0
+    },
+    "D50_g": {
+     "1.0": 92.4,
+     "2.0": 24.0,
+     "4.0": 24.0,
+     "5.0": 24.0,
+     "6.0": 25.0,
+     "7.0": 24.0,
+     "8.0": 24.0
+    },
+    "pick_class_share": {
+     "large >50 g": 0.759,
+     "medium 10-50 g": 0.232,
+     "small <10 g": 0.008
+    }
+   },
+   "6kg": {
+    "green_from_g": {
+     "1.0": "never",
+     "2.0": "never",
+     "4.0": "never",
+     "5.0": "never",
+     "6.0": "200-500",
+     "7.0": "20-50",
+     "8.0": "20-50"
+    },
+    "significance_floor_g": 5.0,
+    "D90_g": {
+     "1.0": 707.0,
+     "2.0": 649.0,
+     "4.0": 689.8,
+     "5.0": 284.8,
+     "6.0": 22.5,
+     "7.0": 5.0,
+     "8.0": 5.0
+    },
+    "D50_g": {
+     "1.0": 205.8,
+     "2.0": 5.0,
+     "4.0": 5.0,
+     "5.0": 5.0,
+     "6.0": 5.0,
+     "7.0": 5.0,
+     "8.0": 5.0
+    },
+    "pick_class_share": {
+     "medium 10-50 g": 0.477,
+     "large >50 g": 0.298,
+     "small <10 g": 0.225
+    }
+   }
+  },
+  "m6_crosstalk": {
+   "near_window_s": 14.0,
+   "peak_found": true,
+   "virtual_racks": {
+    "devices_clustered": 13467,
+    "clusters": 628,
+    "median_cluster_size": 11.0
+   },
+   "6kg": {
+    "tm_vs_ok_coupling_ratio": 0.8,
+    "mechanism": "activity-coupled",
+    "neighbour_induced_share": 0.422,
+    "own_echo_share": 0.031,
+    "other_share": 0.547,
+    "location_r2_explained": 0.145,
+    "co_picking_share_ok": 0.525
+   },
+   "20kg": {
+    "tm_vs_ok_coupling_ratio": 0.89,
+    "mechanism": "activity-coupled",
+    "neighbour_induced_share": 0.481,
+    "own_echo_share": 0.013,
+    "other_share": 0.506,
+    "location_r2_explained": 0.073,
+    "co_picking_share_ok": 0.543
+   }
+  },
+  "m7_policy": {
+   "20kg": {
+    "share_in_target": {
+     "P0 status quo (8)": 0.018,
+     "P1 one setting": 0.187,
+     "P2 segment table": 0.187,
+     "P3 adaptive rule": 0.177,
+     "P4 oracle": 0.23,
+     "P5 one setting (KPI 2.0)": 0.085,
+     "P6 adaptive rule (KPI 2.0)": 0.073
+    },
+    "meas_change_pct": {
+     "P0 status quo (8)": 0.0,
+     "P1 one setting": -83.3,
+     "P2 segment table": -83.3,
+     "P3 adaptive rule": -77.5,
+     "P4 oracle": -82.8,
+     "P5 one setting (KPI 2.0)": -51.9,
+     "P6 adaptive rule (KPI 2.0)": -63.4
+    },
+    "battery_life_change_pct": {
+     "P0 status quo (8)": 0.0,
+     "P1 one setting": 15.2,
+     "P2 segment table": 15.2,
+     "P3 adaptive rule": 14.3,
+     "P4 oracle": 15.1,
+     "P5 one setting (KPI 2.0)": 9.3,
+     "P6 adaptive rule (KPI 2.0)": 8.3
+    },
+    "median_frac": {
+     "P0 status quo (8)": 0.888,
+     "P1 one setting": 0.673,
+     "P2 segment table": 0.673,
+     "P3 adaptive rule": 0.707,
+     "P4 oracle": 0.675,
+     "P5 one setting (KPI 2.0)": 0.836,
+     "P6 adaptive rule (KPI 2.0)": 0.834
+    },
+    "median_tfw": {
+     "P0 status quo (8)": 0.13,
+     "P1 one setting": 0.46,
+     "P2 segment table": 0.46,
+     "P3 adaptive rule": 0.51,
+     "P4 oracle": 0.47,
+     "P5 one setting (KPI 2.0)": 0.23,
+     "P6 adaptive rule (KPI 2.0)": 0.21
+    },
+    "one_setting": 4.0,
+    "one_setting_kpi2": 7.0,
+    "share_in_target_kpi2": {
+     "P0 status quo (8)": 0.042,
+     "P1 one setting": 0.066,
+     "P2 segment table": 0.066,
+     "P3 adaptive rule": 0.036,
+     "P4 oracle": 0.054,
+     "P5 one setting (KPI 2.0)": 0.203,
+     "P6 adaptive rule (KPI 2.0)": 0.262
+    },
+    "median_miss_rate": {
+     "P0 status quo (8)": 0.033,
+     "P1 one setting": 0.38,
+     "P2 segment table": 0.385,
+     "P3 adaptive rule": 0.528,
+     "P4 oracle": 0.387,
+     "P5 one setting (KPI 2.0)": 0.086,
+     "P6 adaptive rule (KPI 2.0)": 0.111
+    },
+    "median_tm_week": {
+     "P0 status quo (8)": 16.25,
+     "P1 one setting": 0.82,
+     "P2 segment table": 0.82,
+     "P3 adaptive rule": 0.87,
+     "P4 oracle": 0.85,
+     "P5 one setting (KPI 2.0)": 6.59,
+     "P6 adaptive rule (KPI 2.0)": 5.8
+    }
+   },
+   "6kg": {
+    "share_in_target": {
+     "P0 status quo (8)": 0.087,
+     "P1 one setting": 0.258,
+     "P2 segment table": 0.258,
+     "P3 adaptive rule": 0.228,
+     "P4 oracle": 0.305,
+     "P5 one setting (KPI 2.0)": 0.215,
+     "P6 adaptive rule (KPI 2.0)": 0.124
+    },
+    "meas_change_pct": {
+     "P0 status quo (8)": 0.0,
+     "P1 one setting": -84.0,
+     "P2 segment table": -84.0,
+     "P3 adaptive rule": -72.3,
+     "P4 oracle": -85.2,
+     "P5 one setting (KPI 2.0)": -70.8,
+     "P6 adaptive rule (KPI 2.0)": -61.4
+    },
+    "battery_life_change_pct": {
+     "P0 status quo (8)": 0.0,
+     "P1 one setting": 12.3,
+     "P2 segment table": 12.3,
+     "P3 adaptive rule": 11.0,
+     "P4 oracle": 12.2,
+     "P5 one setting (KPI 2.0)": 10.4,
+     "P6 adaptive rule (KPI 2.0)": 5.0
+    },
+    "median_frac": {
+     "P0 status quo (8)": 0.732,
+     "P1 one setting": 0.588,
+     "P2 segment table": 0.588,
+     "P3 adaptive rule": 0.618,
+     "P4 oracle": 0.594,
+     "P5 one setting (KPI 2.0)": 0.649,
+     "P6 adaptive rule (KPI 2.0)": 0.711
+    },
+    "median_tfw": {
+     "P0 status quo (8)": 0.38,
+     "P1 one setting": 0.73,
+     "P2 segment table": 0.73,
+     "P3 adaptive rule": 0.64,
+     "P4 oracle": 0.74,
+     "P5 one setting (KPI 2.0)": 0.49,
+     "P6 adaptive rule (KPI 2.0)": 0.4
+    },
+    "one_setting": 2.0,
+    "one_setting_kpi2": 6.0,
+    "share_in_target_kpi2": {
+     "P0 status quo (8)": 0.066,
+     "P1 one setting": 0.041,
+     "P2 segment table": 0.041,
+     "P3 adaptive rule": 0.025,
+     "P4 oracle": 0.016,
+     "P5 one setting (KPI 2.0)": 0.12,
+     "P6 adaptive rule (KPI 2.0)": 0.189
+    },
+    "median_miss_rate": {
+     "P0 status quo (8)": 0.055,
+     "P1 one setting": 0.465,
+     "P2 segment table": 0.523,
+     "P3 adaptive rule": 0.535,
+     "P4 oracle": 0.508,
+     "P5 one setting (KPI 2.0)": 0.193,
+     "P6 adaptive rule (KPI 2.0)": 0.12
+    },
+    "median_tm_week": {
+     "P0 status quo (8)": 11.08,
+     "P1 one setting": 0.74,
+     "P2 segment table": 0.72,
+     "P3 adaptive rule": 0.84,
+     "P4 oracle": 0.74,
+     "P5 one setting (KPI 2.0)": 2.34,
+     "P6 adaptive rule (KPI 2.0)": 5.86
+    }
+   },
+   "achievable_target": [
+    {
+     "scale_type": "20kg",
+     "best_achievable_median_frac": 0.6734439934232408,
+     "at_level": 4.0
+    },
+    {
+     "scale_type": "6kg",
+     "best_achievable_median_frac": 0.587851054461319,
+     "at_level": 2.0
+    }
+   ],
+   "fleet_extrapolation_scales": 110000,
+   "devices_simulated": 14731,
+   "backtest": [
+    {
+     "scale_type": "20kg",
+     "sensitivity": 1.0,
+     "devices": 340,
+     "mae_frac": 0.24890068066296503,
+     "bias_frac": -0.01571296993159736,
+     "corr": 0.313350863912511
+    },
+    {
+     "scale_type": "20kg",
+     "sensitivity": 2.0,
+     "devices": 461,
+     "mae_frac": 0.20951963809485602,
+     "bias_frac": -0.064591396145505,
+     "corr": 0.4188726283195711
+    },
+    {
+     "scale_type": "20kg",
+     "sensitivity": 4.0,
+     "devices": 450,
+     "mae_frac": 0.21761576915487454,
+     "bias_frac": -0.11322822889256852,
+     "corr": 0.45422990615554
+    },
+    {
+     "scale_type": "20kg",
+     "sensitivity": 5.0,
+     "devices": 529,
+     "mae_frac": 0.16806981323196726,
+     "bias_frac": -0.09421443585301562,
+     "corr": 0.5955296855436327
+    },
+    {
+     "scale_type": "20kg",
+     "sensitivity": 6.0,
+     "devices": 637,
+     "mae_frac": 0.10810151649404333,
+     "bias_frac": -0.024056745564320307,
+     "corr": 0.6582203062694119
+    },
+    {
+     "scale_type": "20kg",
+     "sensitivity": 7.0,
+     "devices": 639,
+     "mae_frac": 0.12094344774023774,
+     "bias_frac": -0.07790964010737106,
+     "corr": 0.6805027094875271
+    },
+    {
+     "scale_type": "6kg",
+     "sensitivity": 1.0,
+     "devices": 617,
+     "mae_frac": 0.2752234072961142,
+     "bias_frac": 0.04569887880312794,
+     "corr": 0.349688955063459
+    },
+    {
+     "scale_type": "6kg",
+     "sensitivity": 2.0,
+     "devices": 884,
+     "mae_frac": 0.20037635909322807,
+     "bias_frac": -0.034771027302011315,
+     "corr": 0.464296964654394
+    },
+    {
+     "scale_type": "6kg",
+     "sensitivity": 4.0,
+     "devices": 777,
+     "mae_frac": 0.21970758253618425,
+     "bias_frac": -0.008289398691803437,
+     "corr": 0.4205789797123973
+    },
+    {
+     "scale_type": "6kg",
+     "sensitivity": 5.0,
+     "devices": 947,
+     "mae_frac": 0.17299098884909403,
+     "bias_frac": -0.03416773471814976,
+     "corr": 0.5199863290766087
+    },
+    {
+     "scale_type": "6kg",
+     "sensitivity": 6.0,
+     "devices": 1133,
+     "mae_frac": 0.1516788027763912,
+     "bias_frac": -0.06259470063559082,
+     "corr": 0.6361723722016244
+    },
+    {
+     "scale_type": "6kg",
+     "sensitivity": 7.0,
+     "devices": 1115,
+     "mae_frac": 0.13234373507275313,
+     "bias_frac": -0.04897184765362666,
+     "corr": 0.6409950394476576
+    }
+   ]
+  }
+ },
+ "period": [
+  "2022-03-01",
+  "2022-06-20"
+ ],
+ "idle_check_gap_hours_q05_q25_q50_q75_q95": [
+  26.2,
+  31.0,
+  41.8,
+  48.0,
+  49.2
+ ],
+ "share_manual_after_24h_idle": 0.853000995283223,
+ "share_too_few_after_24h_idle": 0.9071068329023835
+}

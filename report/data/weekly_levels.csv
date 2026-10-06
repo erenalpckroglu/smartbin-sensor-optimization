@@ -1,0 +1,127 @@
+week,scale_type,grp,scales
+2022-02-28,20kg,level 8 (default),3526
+2022-02-28,20kg,levels 1-7 (switched),100
+2022-02-28,20kg,unknown,716
+2022-02-28,6kg,level 8 (default),5971
+2022-02-28,6kg,levels 1-7 (switched),135
+2022-02-28,6kg,unknown,861
+2022-03-07,20kg,level 8 (default),3689
+2022-03-07,20kg,levels 1-7 (switched),101
+2022-03-07,20kg,unknown,613
+2022-03-07,6kg,level 8 (default),6175
+2022-03-07,6kg,levels 1-7 (switched),136
+2022-03-07,6kg,unknown,900
+2022-03-14,20kg,level 8 (default),3786
+2022-03-14,20kg,levels 1-7 (switched),103
+2022-03-14,20kg,unknown,582
+2022-03-14,6kg,level 8 (default),6392
+2022-03-14,6kg,levels 1-7 (switched),142
+2022-03-14,6kg,unknown,791
+2022-03-21,20kg,level 8 (default),3899
+2022-03-21,20kg,levels 1-7 (switched),104
+2022-03-21,20kg,unknown,564
+2022-03-21,6kg,level 8 (default),6748
+2022-03-21,6kg,levels 1-7 (switched),144
+2022-03-21,6kg,unknown,819
+2022-03-28,20kg,level 8 (default),3927
+2022-03-28,20kg,levels 1-7 (switched),103
+2022-03-28,20kg,unknown,575
+2022-03-28,6kg,level 8 (default),6863
+2022-03-28,6kg,levels 1-7 (switched),143
+2022-03-28,6kg,unknown,798
+2022-04-04,20kg,level 3 (anomaly),347
+2022-04-04,20kg,level 8 (default),4136
+2022-04-04,20kg,levels 1-7 (switched),2102
+2022-04-04,20kg,unknown,604
+2022-04-04,6kg,level 3 (anomaly),587
+2022-04-04,6kg,level 8 (default),7365
+2022-04-04,6kg,levels 1-7 (switched),3637
+2022-04-04,6kg,unknown,916
+2022-04-11,20kg,level 3 (anomaly),347
+2022-04-11,20kg,level 8 (default),2141
+2022-04-11,20kg,levels 1-7 (switched),2180
+2022-04-11,20kg,unknown,236
+2022-04-11,6kg,level 3 (anomaly),595
+2022-04-11,6kg,level 8 (default),3743
+2022-04-11,6kg,levels 1-7 (switched),3904
+2022-04-11,6kg,unknown,352
+2022-04-18,20kg,level 3 (anomaly),248
+2022-04-18,20kg,level 8 (default),2426
+2022-04-18,20kg,levels 1-7 (switched),2159
+2022-04-18,20kg,unknown,238
+2022-04-18,6kg,level 3 (anomaly),373
+2022-04-18,6kg,level 8 (default),3760
+2022-04-18,6kg,levels 1-7 (switched),3898
+2022-04-18,6kg,unknown,370
+2022-04-25,20kg,level 3 (anomaly),233
+2022-04-25,20kg,level 8 (default),2981
+2022-04-25,20kg,levels 1-7 (switched),3647
+2022-04-25,20kg,unknown,300
+2022-04-25,6kg,level 3 (anomaly),356
+2022-04-25,6kg,level 8 (default),4500
+2022-04-25,6kg,levels 1-7 (switched),6805
+2022-04-25,6kg,unknown,455
+2022-05-02,20kg,level 3 (anomaly),2
+2022-05-02,20kg,level 8 (default),2111
+2022-05-02,20kg,levels 1-7 (switched),3393
+2022-05-02,20kg,unknown,210
+2022-05-02,6kg,level 3 (anomaly),4
+2022-05-02,6kg,level 8 (default),2315
+2022-05-02,6kg,levels 1-7 (switched),6338
+2022-05-02,6kg,unknown,159
+2022-05-09,20kg,level 3 (anomaly),2
+2022-05-09,20kg,level 8 (default),2180
+2022-05-09,20kg,levels 1-7 (switched),3397
+2022-05-09,20kg,unknown,68
+2022-05-09,6kg,level 3 (anomaly),4
+2022-05-09,6kg,level 8 (default),2370
+2022-05-09,6kg,levels 1-7 (switched),6325
+2022-05-09,6kg,unknown,146
+2022-05-16,20kg,level 3 (anomaly),2
+2022-05-16,20kg,level 8 (default),2350
+2022-05-16,20kg,levels 1-7 (switched),2847
+2022-05-16,20kg,unknown,70
+2022-05-16,6kg,level 3 (anomaly),3
+2022-05-16,6kg,level 8 (default),2813
+2022-05-16,6kg,levels 1-7 (switched),4672
+2022-05-16,6kg,unknown,172
+2022-05-23,20kg,level 3 (anomaly),2
+2022-05-23,20kg,level 8 (default),3093
+2022-05-23,20kg,levels 1-7 (switched),3359
+2022-05-23,20kg,unknown,109
+2022-05-23,6kg,level 3 (anomaly),4
+2022-05-23,6kg,level 8 (default),2828
+2022-05-23,6kg,levels 1-7 (switched),6341
+2022-05-23,6kg,unknown,117
+2022-05-30,20kg,level 3 (anomaly),2
+2022-05-30,20kg,level 8 (default),3525
+2022-05-30,20kg,levels 1-7 (switched),3356
+2022-05-30,20kg,unknown,442
+2022-05-30,6kg,level 3 (anomaly),4
+2022-05-30,6kg,level 8 (default),3044
+2022-05-30,6kg,levels 1-7 (switched),6342
+2022-05-30,6kg,unknown,172
+2022-06-06,20kg,level 3 (anomaly),2
+2022-06-06,20kg,level 8 (default),3452
+2022-06-06,20kg,levels 1-7 (switched),3349
+2022-06-06,20kg,unknown,145
+2022-06-06,6kg,level 3 (anomaly),4
+2022-06-06,6kg,level 8 (default),3035
+2022-06-06,6kg,levels 1-7 (switched),6343
+2022-06-06,6kg,unknown,177
+2022-06-13,20kg,level 3 (anomaly),2
+2022-06-13,20kg,level 8 (default),3586
+2022-06-13,20kg,levels 1-7 (switched),3350
+2022-06-13,20kg,unknown,157
+2022-06-13,6kg,level 3 (anomaly),4
+2022-06-13,6kg,level 8 (default),3256
+2022-06-13,6kg,levels 1-7 (switched),6337
+2022-06-13,6kg,unknown,166
+2022-06-20,20kg,level 3 (anomaly),1
+2022-06-20,20kg,level 8 (default),2930
+2022-06-20,20kg,levels 1-7 (switched),1685
+2022-06-20,20kg,unknown,125
+2022-06-20,6kg,level 3 (anomaly),3
+2022-06-20,6kg,level 8 (default),2239
+2022-06-20,6kg,levels 1-7 (switched),2292
+2022-06-20,6kg,unknown,72

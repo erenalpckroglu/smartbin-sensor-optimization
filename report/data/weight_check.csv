@@ -1,0 +1,5 @@
+subset,scale_type,device_settings,median_delta_frac_tm_heavier,ci_lo,ci_hi,median_delta_tf_week_heavier
+lecture subset (relevant_for_weight_analysis),20kg,976,-0.24732682542928341,-0.2679435483870968,-0.2348906342171168,0.23319631750168174
+lecture subset (relevant_for_weight_analysis),6kg,1065,-0.12180476925716255,-0.14068764568764566,-0.10192765567765573,0.014800678177383314
+all devices that changed weight bin,20kg,2964,-0.04456944765197107,-0.05019257306099106,-0.03967718045843044,0.0
+all devices that changed weight bin,6kg,2817,-0.0267379679144385,-0.03200061936984228,-0.020226538062295827,0.0
