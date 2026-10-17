@@ -6,7 +6,7 @@
 > Case from the HSLU MSc *Data-Driven Supply Chain Management & Logistics* module (Bossard AG × D ONE).
 > The confidential fleet data is **not** included. `make demo` runs the full pipeline on a realistic synthetic fleet instead.
 >
-> **Status: interim findings (presentation 23 Oct 2026).** Pipeline, written report and client deck are complete; the Power BI report is built on top of the pipeline output.
+> **Status: interim findings (presentation 23 Oct 2026).** Pipeline, written report and both decks (CTO deck and long deck) are complete; the Power BI report is built on top of the pipeline output.
 
 ## The answer in one paragraph
 
@@ -16,7 +16,9 @@ The right sensitivity is not in the master data: box type and item weight matter
 |---|---|---|
 | **Flag** | daily trigger-loop detector, looping scales to service, level 3 off the menu | 1.5% of the scales caused 27% of all automatic weighings (mostly during the April trial of level 3) |
 | **Tune** | start on level 7; every two weeks one step less sensitive if > 7 empty wake-ups a week and ≤ 5% missed, one step more sensitive if > 10% missed or > 2 TOO_FEW a week; 6 kg and 20 kg monitored apart | −61% (20 kg) / −55% (6 kg) weighings, median missed changes 11–12% |
-| **Watch** | KPI 2.0 per scale, the 24 h idle check as safety net, a watch list for the few scales where misses concentrate | misses found within 1–2 days; no nightly check for every scale |
+| **Watch** | KPI 2.0 per scale, the 24 h idle check as safety net, a watch list for the few scales where misses concentrate, an alarm for scales without a weighing for 48 h | misses found after a median of 33–38 h, 76–83% within 48 h; no nightly check for every scale |
+
+Key insight: once the looping scales are left out, 55% of the empty wake-ups coincide with a real pick at another bin of the same site within ±14 s (beyond chance; a placebo site gives 0.7%). Every key result holds without the looping scales (`report/robustness_loops.py`, report Appendix C).
 
 Rejected after testing: one level for all, a table by pick size, steering by the TOO_MANY fraction, quiet hours, a longer minimum wait time (not measurable). Merging bursts of wake-ups is an optional firmware item.
 
@@ -124,17 +126,21 @@ powershell -ExecutionPolicy Bypass -File run_bossard.ps1   # Windows
 ## Report and presentation
 
 - `report/report.pdf` – the written report (Quarto with the Typst engine, 18 pages).
-- `presentation/SmartBin – the story for the client.pptx` – the client deck: 19 slides plus appendix and references, with speaker notes. The slides marked **POWER BI DASHBOARD A / B / C** are placeholders for screenshots of the Power BI report.
+- `presentation/SmartBin – CTO presentation.pptx` – the deck for the client's CTO: problem, findings, flag-tune-watch with the rules as formulas and worked examples, result, next steps (17 slides + backup), with speaker notes. Arial only, no font install needed.
+- `presentation/SmartBin – the story for the client.pptx` – the long deck: 19 slides plus appendix and references, with speaker notes.
+- In both decks the slides marked **POWER BI DASHBOARD A / B / C** are placeholders for screenshots of the Power BI report.
 
 After a full pipeline run both are rebuilt with:
 
 ```bash
 python report/build_figures.py --reports reports/bossard --processed data/processed --db data/interim/smartbin.duckdb
+python report/robustness_loops.py --db data/interim/smartbin.duckdb --parts knob,policy,coupling,extra,bins,examples
 quarto render report/report.qmd
 python presentation/build_deck.py
+python presentation/build_cto_deck.py
 ```
 
-`report/data/` holds only aggregated tables, `report/figures/` and `presentation/charts/` the charts. `--figures-only` redraws the report charts without the raw data; the deck needs only `report/data/` (fonts: Inter and Source Serif 4).
+`report/data/` holds only aggregated tables, `report/figures/`, `presentation/charts/` and `presentation/charts_cto/` the charts. `--figures-only` redraws the report charts without the raw data; both decks need only `report/data/` (long deck fonts: Inter and Source Serif 4; CTO deck: Arial).
 
 Every analytical choice lives in `config/config.yaml`: targets, filters, windows, battery assumptions. No numbers are hard-coded.
 
@@ -148,8 +154,9 @@ src/smartbin/
   analysis/  baseline · sensitivity · importance · location · pick_size · crosstalk · policy · validation
   simulate.py               synthetic fleet with known ground truth
 docs/                       problem & KPIs · data dictionary · cleaning rules · methodology · decision log · report notes
-report/                     written report: build_figures.py (aggregates + charts), report.qmd, report.pdf
-presentation/               client deck: build_deck.py, charts/, the .pptx
+report/                     written report: build_figures.py (aggregates + charts), robustness_loops.py (results without
+                            the looping scales, placebo test, examples), report.qmd, report.pdf
+presentation/               build_cto_deck.py (CTO deck), build_deck.py (long deck), charts, the two .pptx
 tests/                      KPI / stats / cleaning unit tests + end-to-end recovery test
 ```
 

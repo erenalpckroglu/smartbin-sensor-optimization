@@ -1,0 +1,16 @@
+group,measure,quantile,value
+loop,auto_per_day,0.5,629.5625
+loop,auto_per_day,0.9,817.7798076923076
+loop,auto_per_day,0.99,891.2274750830557
+loop,share_retrigger,0.5,0.8557829540295393
+loop,share_retrigger,0.9,0.9726960110041265
+loop,share_retrigger,0.99,0.9856085931856678
+no loop,auto_per_day,0.5,2.875
+no loop,auto_per_day,0.9,13.960845682166582
+no loop,auto_per_day,0.99,47.74418604651143
+no loop,share_retrigger,0.5,0.0344827586206896
+no loop,share_retrigger,0.9,0.1111111111111111
+no loop,share_retrigger,0.99,0.3
+no loop,share above 20 per day,,0.0510268067095156
+no loop,share above 50% retrigger,,0.0008622041072268381
+all,scale-levels judged,,25796.0
