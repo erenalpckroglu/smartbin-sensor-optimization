@@ -277,6 +277,100 @@ def loop_detector_bins(loops):
             .reset_index())
 
 
+def loop_evidence(con, loops, cfg):
+    """Why we call a scale-level a trigger loop: timing, night share, emptiness, persistence, behaviour on its
+    other levels, and whether its wake-ups coincide with picks nearby. Aggregated, no IDs."""
+    lv = loops[["deviceid", "sensitivity", "loop"]].copy()
+    con.register("lf_df", lv)
+    con.execute("CREATE OR REPLACE TEMP TABLE lf AS SELECT * FROM lf_df")
+    prof = con.execute("""
+        SELECT CASE WHEN lf.loop THEN 'trigger loop' ELSE 'normal' END AS grp,
+               count(*) AS wakeups,
+               avg((e.cls = 'TOO_MANY')::INT) AS share_empty,
+               avg((e.hour < 5)::INT) AS share_night_0_5h,
+               avg((e.isodow >= 6)::INT) AS share_weekend,
+               avg((e.gap_s BETWEEN 85 AND 95)::INT) FILTER (WHERE e.prev_initiator = 'AUTOMATIC') AS share_gap_85_95s,
+               median(e.gap_s) FILTER (WHERE e.prev_initiator = 'AUTOMATIC') AS median_gap_s
+        FROM events e JOIN lf ON lf.deviceid = e.deviceid AND lf.sensitivity = e.sensitivity
+        WHERE e.is_auto GROUP BY 1""").df()
+    picks = con.execute("""SELECT 'real picks (all scales)' AS grp, count(*) AS wakeups, 0.0 AS share_empty,
+                                  avg((hour < 5)::INT) AS share_night_0_5h, avg((isodow >= 6)::INT) AS share_weekend
+                           FROM events WHERE is_auto AND cls = 'OK'""").df()
+    prof = pd.concat([prof, picks], ignore_index=True)
+    # persistence: share of observed days on which a looping scale-level woke up more than 20 times
+    pers = con.execute("""
+        WITH d AS (SELECT e.deviceid, e.sensitivity, e.day, count(*) AS n
+                   FROM events e JOIN lf ON lf.deviceid = e.deviceid AND lf.sensitivity = e.sensitivity AND lf.loop
+                   WHERE e.is_auto GROUP BY ALL),
+        s AS (SELECT deviceid, sensitivity, count(*) AS days, avg((n > 20)::INT) AS share_days_over_20 FROM d GROUP BY ALL)
+        SELECT count(*) AS loop_scale_levels, median(days) AS median_days_observed,
+               median(share_days_over_20) AS median_share_days_over_20,
+               avg((share_days_over_20 >= 0.8)::INT) AS share_looping_on_80pct_of_days FROM s""").df()
+    # the same scales on their other levels
+    ids = set(loops[loops.loop].deviceid)
+    other = loops[loops.deviceid.isin(ids)]
+    rows = []
+    for grp, sel in [("loop on level 3", other[(other.sensitivity == 3.0) & other.loop].deviceid),
+                     ("loop on another level", other[(other.sensitivity != 3.0) & other.loop].deviceid)]:
+        sel = set(sel)
+        o = other[other.deviceid.isin(sel)]
+        looplv = o[o.loop].groupby("deviceid").sensitivity.apply(set)
+        oth = o[o.apply(lambda r: r.sensitivity not in looplv.get(r.deviceid, set()), axis=1)]
+        rows.append(dict(group=grp, scales=len(sel), scales_seen_on_other_level=oth.deviceid.nunique(),
+                         of_which_normal_there=oth[~oth.loop].deviceid.nunique(),
+                         median_wakeups_per_day_other_level=oth.auto_per_day.median(),
+                         median_wakeups_per_day_loop_level=o[o.loop].auto_per_day.median()))
+    other_tab = pd.DataFrame(rows)
+    # coupling of loop wake-ups vs normal wake-ups at level 8
+    std = ", ".join(str(float(x)) for x in cfg.cleaning.standard_delay)
+    d0 = float(cfg.cleaning.standard_delay[0])
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE src AS
+        SELECT location_id, deviceid AS src_dev, ts AS src_ts, CAST(floor(ts / {W}) AS BIGINT) + o AS b
+        FROM events, (SELECT unnest([-1, 0, 1]) AS o)
+        WHERE is_auto AND cls = 'OK' AND location_id IS NOT NULL AND coalesce(delay, {d0}) IN ({std})""")
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE tgt3 AS
+        SELECT e.rid, e.deviceid, e.location_id, e.ts, CAST(floor(e.ts / {W}) AS BIGINT) AS b, lf.loop
+        FROM events e JOIN lf ON lf.deviceid = e.deviceid AND lf.sensitivity = e.sensitivity
+        WHERE e.is_auto AND e.cls = 'TOO_MANY' AND e.sensitivity = 8 AND e.location_id IS NOT NULL
+          AND coalesce(e.delay, {d0}) IN ({std})""")
+    cp = con.execute(f"""
+        WITH f AS (SELECT t.rid, bool_or(abs(t.ts - s.src_ts) <= {NEAR}) AS near,
+                          bool_or((s.src_ts - t.ts) BETWEEN {CTRL0} AND {CTRL0 + 2 * NEAR}) AS ctrl
+                   FROM tgt3 t JOIN src s ON t.location_id = s.location_id AND t.b = s.b
+                   WHERE s.src_dev <> t.deviceid AND abs(t.ts - s.src_ts) <= {W} GROUP BY t.rid)
+        SELECT CASE WHEN t.loop THEN 'trigger loop' ELSE 'normal' END AS grp, count(*) AS n,
+               avg(coalesce(f.near, false)::INT) AS p_near, avg(coalesce(f.ctrl, false)::INT) AS p_chance
+        FROM tgt3 t LEFT JOIN f USING (rid) GROUP BY 1""").df()
+    cp["coupled_beyond_chance"] = (cp.p_near - cp.p_chance) / (1 - cp.p_chance)
+    hourly = con.execute("""
+        SELECT CASE WHEN lf.loop THEN 'trigger loop' ELSE 'normal' END AS grp, e.hour, count(*) AS n
+        FROM events e JOIN lf ON lf.deviceid = e.deviceid AND lf.sensitivity = e.sensitivity
+        WHERE e.is_auto GROUP BY ALL""").df()
+    return prof, pers, other_tab, cp, hourly
+
+
+def watch_tables(con, ds, cfg):
+    """How long a missed change stays invisible (buckets), and how concentrated the misses are across scales."""
+    delay = con.execute("""
+        SELECT scale_type,
+               CASE WHEN gap_s < 24 * 3600 THEN '< 24 h' WHEN gap_s < 48 * 3600 THEN '24–48 h'
+                    WHEN gap_s < 72 * 3600 THEN '48–72 h' ELSE '> 72 h' END AS found_after,
+               count(*) AS too_few
+        FROM events WHERE cls = 'TOO_FEW' AND exclusion_reason IS NULL AND gap_s IS NOT NULL GROUP BY ALL""").df()
+    b = float(cfg.analysis.baseline_sensitivity)
+    d = ds[ds.main_analysis & (ds.sensitivity == b)]
+    rows = []
+    for st, g in d.groupby("scale_type"):
+        tf = np.sort(g.n_tf.values)[::-1]
+        cum = np.cumsum(tf) / max(tf.sum(), 1)
+        for q in np.linspace(0, 1, 101):
+            k = int(round(q * len(tf)))
+            rows.append(dict(scale_type=st, share_of_scales=q, share_of_too_few=float(cum[k - 1]) if k > 0 else 0.0))
+    return delay, pd.DataFrame(rows)
+
+
 def loop_grid(loops, total_auto):
     rows = []
     for share in (0.3, 0.4, 0.5, 0.6, 0.7):
@@ -327,6 +421,15 @@ def main():
         res["loop_flag_distribution"] = loop_flag_distribution(loops)
         c = res["coupling_correlogram_no_loops"]
         print(c[c.lag_s.abs() <= 4].round(2).to_string(), res["loop_flag_distribution"].round(3).to_string(), sep="\n")
+    if "loopevidence" in parts:
+        prof, pers, oth, cp, hourly = loop_evidence(con, loops, cfg)
+        res["loop_evidence_profile"], res["loop_evidence_persistence"] = prof, pers
+        res["loop_evidence_other_levels"], res["loop_evidence_coupling"], res["loop_evidence_hourly"] = oth, cp, hourly
+        print(prof.round(3).to_string(), pers.round(3).to_string(), oth.round(2).to_string(), cp.round(3).to_string(),
+              sep="\n")
+    if "watch" in parts:
+        res["miss_delay_buckets"], res["too_few_concentration"] = watch_tables(con, ds, cfg)
+        print(res["miss_delay_buckets"].to_string())
     if "bins" in parts:
         res["loop_detector_bins"] = loop_detector_bins(loops)
         print(res["loop_detector_bins"].describe().round(2).to_string())
