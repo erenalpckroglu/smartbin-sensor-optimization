@@ -126,9 +126,9 @@ powershell -ExecutionPolicy Bypass -File run_bossard.ps1   # Windows
 ## Report and presentation
 
 - `report/report.pdf` – the written report (Quarto with the Typst engine, 18 pages).
-- `presentation/SmartBin – CTO presentation.pptx` – the deck for the client's CTO: problem, findings, flag-tune-watch with the rules as formulas and worked examples, result, next steps (17 slides + backup), with speaker notes. Arial only, no font install needed.
+- `presentation/SmartBin – CTO presentation.pptx` – the deck for the client's CTO: problem, findings, flag-tune-watch, result, next steps (18 slides + 6 backup), plain language, charts instead of text, short speaker notes. Dark theme with DM Sans and Space Grotesk (free Google fonts).
 - `presentation/SmartBin – the story for the client.pptx` – the long deck: 19 slides plus appendix and references, with speaker notes.
-- In both decks the slides marked **POWER BI DASHBOARD A / B / C** are placeholders for screenshots of the Power BI report.
+- Power BI: `docs/07_powerbi_dashboards.md` describes the three report pages (data, DAX measures, visuals) and which CTO slide each one can replace. The long deck still has placeholder slides for them.
 
 After a full pipeline run both are rebuilt with:
 
@@ -140,7 +140,7 @@ python presentation/build_deck.py
 python presentation/build_cto_deck.py
 ```
 
-`report/data/` holds only aggregated tables, `report/figures/`, `presentation/charts/` and `presentation/charts_cto/` the charts. `--figures-only` redraws the report charts without the raw data; both decks need only `report/data/` (long deck fonts: Inter and Source Serif 4; CTO deck: Arial).
+`report/data/` holds only aggregated tables, `report/figures/`, `presentation/charts/` and `presentation/charts_cto/` the charts. `--figures-only` redraws the report charts without the raw data; both decks need only `report/data/` (long deck fonts: Inter and Source Serif 4; CTO deck: DM Sans and Space Grotesk).
 
 Every analytical choice lives in `config/config.yaml`: targets, filters, windows, battery assumptions. No numbers are hard-coded.
 
@@ -153,7 +153,8 @@ src/smartbin/
   powerbi.py                Power BI pack (per-scale tables)  ·  explorer.py  interactive pick-size page
   analysis/  baseline · sensitivity · importance · location · pick_size · crosstalk · policy · validation
   simulate.py               synthetic fleet with known ground truth
-docs/                       problem & KPIs · data dictionary · cleaning rules · methodology · decision log · report notes
+docs/                       problem & KPIs · data dictionary · cleaning rules · methodology · decision log · report notes ·
+                            Power BI dashboard guide
 report/                     written report: build_figures.py (aggregates + charts), robustness_loops.py (results without
                             the looping scales, placebo test, examples), report.qmd, report.pdf
 presentation/               build_cto_deck.py (CTO deck), build_deck.py (long deck), charts, the two .pptx
@@ -168,4 +169,4 @@ tests/                      KPI / stats / cleaning unit tests + end-to-end recov
 - **Location = site.** No rack positions exist in the data; virtual racks are inferred and should be confirmed on site.
 - **The battery effect is a model.** A measurement is assumed to take 2 s at 3000× sleep power; this is a config value with a sensitivity check.
 
-Docs: [problem & KPIs](docs/01_problem_and_kpis.md) · [data dictionary](docs/02_data_dictionary.md) · [cleaning](docs/03_data_cleaning.md) · [methodology](docs/04_methodology.md) · [decision log](docs/05_decision_log.md) · [report notes](docs/06_report_notes.md)
+Docs: [problem & KPIs](docs/01_problem_and_kpis.md) · [data dictionary](docs/02_data_dictionary.md) · [cleaning](docs/03_data_cleaning.md) · [methodology](docs/04_methodology.md) · [decision log](docs/05_decision_log.md) · [report notes](docs/06_report_notes.md) · [Power BI dashboards](docs/07_powerbi_dashboards.md)
