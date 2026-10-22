@@ -17,9 +17,8 @@ __pycache__/
 .venv/
 .DS_Store
 code_update.zip
+.Rhistory
 run_bossard.sh.local
-# Power BI files embed the data: commit only a synthetic version, on purpose (git add -f)
-*.pbix
 ~$*
 # Quarto build artefacts
 .quarto/

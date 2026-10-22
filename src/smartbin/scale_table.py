@@ -1,16 +1,12 @@
 """
-Power BI pack: small, analysis-ready tables for a self-built Power BI report.
+Per-scale table: one row = one scale on one sensitivity level, with its counts and KPIs.
 
-Why not load measurements.csv into Power BI directly?
-  * 7.6M rows make every visual slow, and
-  * a ratio such as "TOO_MANY / automatic" must be computed PER SCALE first and only then
-    summarised (median over scales). Summing raw rows lets the noisiest scales dominate
-    (sensitivity 3 fires ~150x a day and would swamp every pooled number).
+Why not work on the 7.6M rows directly? A ratio such as "TOO_MANY / automatic" must be computed PER SCALE first and
+only then summarised (median over scales). Summing raw rows lets the noisiest scales dominate (sensitivity 3 fires
+~150x a day and would swamp every pooled number). report/build_figures.py reads this table.
 
-So the pipeline does the per-scale arithmetic once, and Power BI only filters and summarises.
-
-reports/<run>/powerbi/
-    fact_device_sensitivity.csv   one row = one scale on one sensitivity level (grain of every KPI page)
+reports/<run>/per_scale/
+    fact_device_sensitivity.csv   one row = one scale on one sensitivity level
     cleaning_funnel.csv           what was removed or flagged, in order, and why
     README.md                     column dictionary
 """
@@ -102,16 +98,14 @@ def fact_device_sensitivity(ds: pd.DataFrame) -> pd.DataFrame:
     return out.sort_values(["scale_type", "sensitivity", "device_id"]).reset_index(drop=True)
 
 
-def export_powerbi(ds: pd.DataFrame, funnel: pd.DataFrame, cfg) -> Path:
-    out = cfg.paths.reports / "powerbi"
+def export_scale_table(ds: pd.DataFrame, funnel: pd.DataFrame, cfg) -> Path:
+    out = cfg.paths.reports / "per_scale"
     out.mkdir(parents=True, exist_ok=True)
     fact_device_sensitivity(ds).to_csv(out / "fact_device_sensitivity.csv", index=False)
     f = funnel.copy()
     f.insert(0, "stage", np.where(f.step < 10, "A - delete broken rows", "B - flag (kept for weight changes)"))
     f.to_csv(out / "cleaning_funnel.csv", index=False)
-    lines = ["# Power BI pack", "",
-             "Import with *File > Options > Current file > Regional settings > Locale for import = "
-             "English (United States)* so that `0.92` is read as a decimal.", "",
+    lines = ["# Per-scale table", "",
              "## fact_device_sensitivity.csv", "One row = one scale on one sensitivity level.", "",
              "| column | meaning |", "|---|---|"]
     lines += [f"| `{c}` | {m} |" for c, m in COLUMNS]

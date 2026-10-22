@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import cleaning, features, io, powerbi, report, tables, viz
+from . import cleaning, features, io, report, scale_table, tables, viz
 from .analysis import ModuleResult, baseline, crosstalk, importance, location, pick_size, policy, sensitivity, validation
 from .config import load_config
 
@@ -96,7 +96,7 @@ def run(config="config/config.yaml", measurements=None, metadata=None, preproces
                           FROM events) TO '{(cfg.paths.processed / 'row_flags.parquet').as_posix()}' (FORMAT parquet)""")
     sections.to_parquet(cfg.paths.processed / "sections.parquet", index=False)
     ds.to_parquet(cfg.paths.processed / "device_settings.parquet", index=False)
-    powerbi.export_powerbi(ds, funnel, cfg)
+    scale_table.export_scale_table(ds, funnel, cfg)
     log.info("tables: %s sections, %s device-settings, roles %s", f"{len(sections):,}", f"{len(ds):,}",
              roles.value_counts().to_dict())
 

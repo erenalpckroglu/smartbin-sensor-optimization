@@ -104,8 +104,8 @@ def extract(reports: Path, processed: Path, db: Path | None):
     res = json.loads((reports / "results.json").read_text())
     facts = {k: m.get("facts", {}) for k, m in res["modules"].items()}
 
-    # one row = one scale on one sensitivity level (pipeline's Power BI table) -> medians and shares
-    f = pd.read_csv(reports / "powerbi" / "fact_device_sensitivity.csv")
+    # one row = one scale on one sensitivity level (pipeline's per-scale table) -> medians and shares
+    f = pd.read_csv(reports / "per_scale" / "fact_device_sensitivity.csv")
     f = f[f.analysis_group == "main"].copy()
     f["real_picks_per_week"] = f.n_auto_ok / f.weeks_observed
     f["auto_per_week"] = f.n_auto / f.weeks_observed
