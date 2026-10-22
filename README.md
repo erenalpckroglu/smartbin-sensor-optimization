@@ -1,12 +1,12 @@
 # SmartBin Cloud: data-driven tuning of an IoT vibration sensor
 
 **What this repo does.** It finds the sensitivity setting that stops 110,000 battery-powered smart bins from weighing themselves for nothing, without letting real stock changes slip through.
-**How.** It answers the question with causal inference on 7.5 million IoT events. Every method is validated against a simulator with a planted ground truth before it touches real data.
+**How.** It answers the question with causal inference on 7.6 million IoT events. Every method is validated against a simulator with a planted ground truth before it touches real data.
 
 > Case from the HSLU MSc *Data-Driven Supply Chain Management & Logistics* module (Bossard AG × D ONE).
 > The confidential fleet data is **not** included. `make demo` runs the full pipeline on a realistic synthetic fleet instead.
 >
-> **Status: interim findings (presentation 23 Oct 2026).** Pipeline, written report and both decks (CTO deck and long deck) are complete; the Power BI report is built on top of the pipeline output.
+> **Status: final (presentation 23 Oct 2026).** Pipeline, written report and the CTO deck are complete.
 
 ## The answer in one paragraph
 
@@ -55,7 +55,7 @@ The **sensitivity (1–10)** setting decides when the sensor fires:
 
 ```mermaid
 flowchart TB
-    A[measurements.csv<br/>7.5M weighings] --> C1
+    A[measurements.csv<br/>7.6M weighings] --> C1
     B[scale_metadata.csv<br/>18.5k scales] --> F
     D[scale_preprocessing.csv<br/>D ONE flags] --> V
     C1[Stage A cleaning<br/>delete broken rows] --> F[Feature layer<br/>weight deltas · time · metadata]
@@ -81,14 +81,7 @@ flowchart TB
 
 ---
 
-## Outputs (synthetic demo, numbers are NOT Bossard's)
-
-| | |
-|---|---|
-| ![](docs/img/importance.png) | ![](docs/img/tradeoff.png) |
-| **Which parameters matter**: share of variation explained, chance-corrected | **The trade-off**: every sensitivity level is a point on the curve |
-| ![](docs/img/correlogram.png) | ![](docs/img/policy.png) |
-| **Crosstalk**: neighbour picks pile up exactly at empty measurements | **Policies**: share of scales in target vs measurement savings |
+## Outputs
 
 Each run produces:
 - `reports/index.html`: cleaning funnel, data checks, column decisions, validation.
@@ -96,7 +89,7 @@ Each run produces:
 - `reports/run_summary.md`: the answers in plain text.
 - `reports/results.json`: every headline number.
 - `reports/tables/*.csv`: every table.
-- `reports/powerbi/`: analysis-ready tables for the Power BI report (one row = one scale on one sensitivity level) + column dictionary.
+- `reports/per_scale/`: one row = one scale on one sensitivity level, with a column dictionary (input of `report/build_figures.py`).
 - `data/processed/filtered_out/`: every row that did not enter the KPI analysis, with the reason (sample per reason, all duplicate copies, deleted rows).
 
 ---
@@ -113,7 +106,7 @@ On the real data, put the three files into `data/raw/` and run:
 
 ```bash
 make smoke                  # 1 min: proves the code reads the real format (10 MB random-row sample)
-make run                    # full 7.5M rows -> reports/  (a few minutes, DuckDB on disk, laptop-friendly)
+make run                    # full 7.6M rows -> reports/  (a few minutes, DuckDB on disk, laptop-friendly)
 ```
 
 Shortcut when the three Bossard files sit **one folder above** the repo:
@@ -125,10 +118,8 @@ powershell -ExecutionPolicy Bypass -File run_bossard.ps1   # Windows
 
 ## Report and presentation
 
+- `presentation/SmartBin – CTO presentation.pptx` – the deck for the client's CTO: problem, findings, flag-tune-watch, result, next steps (18 slides + 6 backup), plain language, charts instead of text, short speaker notes. Fonts: DM Sans and Space Grotesk (free Google fonts).
 - `report/report.pdf` – the written report (Quarto with the Typst engine, 18 pages).
-- `presentation/SmartBin – CTO presentation.pptx` – the deck for the client's CTO: problem, findings, flag-tune-watch, result, next steps (18 slides + 6 backup), plain language, charts instead of text, short speaker notes. Dark theme with DM Sans and Space Grotesk (free Google fonts).
-- `presentation/SmartBin – the story for the client.pptx` – the long deck: 19 slides plus appendix and references, with speaker notes.
-- Power BI: `docs/07_powerbi_dashboards.md` describes the three report pages (data, DAX measures, visuals) and which CTO slide each one can replace. The long deck still has placeholder slides for them.
 
 After a full pipeline run both are rebuilt with:
 
@@ -136,11 +127,10 @@ After a full pipeline run both are rebuilt with:
 python report/build_figures.py --reports reports/bossard --processed data/processed --db data/interim/smartbin.duckdb
 python report/robustness_loops.py --db data/interim/smartbin.duckdb --parts knob,policy,coupling,extra,bins,examples
 quarto render report/report.qmd
-python presentation/build_deck.py
 python presentation/build_cto_deck.py
 ```
 
-`report/data/` holds only aggregated tables, `report/figures/`, `presentation/charts/` and `presentation/charts_cto/` the charts. `--figures-only` redraws the report charts without the raw data; both decks need only `report/data/` (long deck fonts: Inter and Source Serif 4; CTO deck: DM Sans and Space Grotesk).
+`report/data/` holds only aggregated tables, `report/figures/` and `presentation/charts_cto/` the charts. `--figures-only` redraws the report charts without the raw data; the deck needs only `report/data/`.
 
 Every analytical choice lives in `config/config.yaml`: targets, filters, windows, battery assumptions. No numbers are hard-coded.
 
@@ -150,14 +140,13 @@ Every analytical choice lives in `config/config.yaml`: targets, filters, windows
 config/config.yaml          all assumptions & thresholds
 src/smartbin/
   io.py  cleaning.py  features.py  tables.py  kpi.py  stats.py  viz.py  report.py  pipeline.py
-  powerbi.py                Power BI pack (per-scale tables)  ·  explorer.py  interactive pick-size page
+  scale_table.py            per-scale table  ·  explorer.py  interactive pick-size page
   analysis/  baseline · sensitivity · importance · location · pick_size · crosstalk · policy · validation
   simulate.py               synthetic fleet with known ground truth
-docs/                       problem & KPIs · data dictionary · cleaning rules · methodology · decision log · report notes ·
-                            Power BI dashboard guide
+docs/                       problem & KPIs · data dictionary · cleaning rules · methodology · decision log
 report/                     written report: build_figures.py (aggregates + charts), robustness_loops.py (results without
                             the looping scales, placebo test, examples), report.qmd, report.pdf
-presentation/               build_cto_deck.py (CTO deck), build_deck.py (long deck), charts, the two .pptx
+presentation/               build_cto_deck.py + deck_facts.py, charts_cto/, the CTO deck (.pptx)
 tests/                      KPI / stats / cleaning unit tests + end-to-end recovery test
 ```
 
@@ -169,4 +158,4 @@ tests/                      KPI / stats / cleaning unit tests + end-to-end recov
 - **Location = site.** No rack positions exist in the data; virtual racks are inferred and should be confirmed on site.
 - **The battery effect is a model.** A measurement is assumed to take 2 s at 3000× sleep power; this is a config value with a sensitivity check.
 
-Docs: [problem & KPIs](docs/01_problem_and_kpis.md) · [data dictionary](docs/02_data_dictionary.md) · [cleaning](docs/03_data_cleaning.md) · [methodology](docs/04_methodology.md) · [decision log](docs/05_decision_log.md) · [report notes](docs/06_report_notes.md) · [Power BI dashboards](docs/07_powerbi_dashboards.md)
+Docs: [problem & KPIs](docs/01_problem_and_kpis.md) · [data dictionary](docs/02_data_dictionary.md) · [cleaning](docs/03_data_cleaning.md) · [methodology](docs/04_methodology.md) · [decision log](docs/05_decision_log.md)
