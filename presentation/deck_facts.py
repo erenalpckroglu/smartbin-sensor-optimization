@@ -162,7 +162,7 @@ REFS = [
     "Princeton University Press.",
     "Bossard AG. (n.d.). SmartBin Cloud. Retrieved 6 October 2026, from "
     "https://www.bossard.com/ch-en/smart-factory-logistics/systems/smartbin-cloud/",
-    "Bossard AG & D ONE Solutions AG. (2026). Smart Factory Logistics – SmartBin Cloud [Lecture slides, case "
+    "Bossard AG & D ONE Solutions AG. (2026). Smart Factory Logistics: SmartBin Cloud [Lecture slides, case "
     "description and case data]. HSLU, module Data-driven Supply Chain Management and Logistics. Confidential (NDA).",
     "Chapman, P., Clinton, J., Kerber, R., Khabaza, T., Reinartz, T., Shearer, C., & Wirth, R. (2000). "
     "CRISP-DM 1.0: Step-by-step data mining guide. SPSS Inc.",
