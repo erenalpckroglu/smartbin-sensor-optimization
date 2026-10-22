@@ -1109,7 +1109,7 @@ def build():
        color=WHITE, line=1.0)
     tb(s, LM, 3.15, 6.6, 0.9, "How each SmartBin scale can find its own sensor setting", size=19, color=TXT,
        line=1.15)
-    tb(s, LM, 6.3, 7, 0.3, "Erenalp Çakıroğlu", size=15, family=HEAD, bold=True, color=WHITE)
+    tb(s, LM, 6.3, 7, 0.3, "Erenalp Çakıroğlu - Nikolaos Georgantopoulos", size=15, family=HEAD, bold=True, color=WHITE)
     tb(s, LM, 6.62, 7, 0.3, "MSc Applied Information and Data Science · HSLU Lucerne", size=12.5, color=TXT)
     stats = [(f"{pct0(-save20)} / {pct0(-save6)}", "fewer weighings with our rule", MINT),
              (pc(c_both), "of empty wake-ups happen when someone picks nearby", PERI),
