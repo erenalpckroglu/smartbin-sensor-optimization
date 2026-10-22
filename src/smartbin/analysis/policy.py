@@ -247,13 +247,16 @@ def run(ds, effects, pairs, pick_profile, cfg, loops=None) -> ModuleResult:
     return r
 
 
-def _adaptive(R, B, levels, base, cfg, rng, mode="bossard", start=None):
+def _adaptive(R, B, levels, base, cfg, rng, mode="bossard", start=None, min_tf=0, down_miss=None, min_picks_down=0):
     """
     Simulate the 2-weekly feedback rule with Poisson noise.
     Returns final levels, mean time-in-target (second half) and setting changes per scale and month.
     mode="bossard": +1 if TOO_FEW/week > 2 ; -1 if TOO_MANY fraction > 0.5 and TOO_FEW comfortably low
     mode="kpi2"   : +1 if miss rate > 10% ; -1 if TOO_MANY/week > 7 and miss rate <= 5%
     start         : first level of every scale (default: the baseline level 8)
+    min_tf        : kpi2 only - a step up also needs at least this many misses in the cycle (0 = off)
+    down_miss     : kpi2 only - highest miss share that still allows a step down (default: half the miss target)
+    min_picks_down: kpi2 only - a step down also needs at least this many picks seen in the cycle (0 = off)
     """
     t_tm, t_tf = cfg.kpi.tm_target, cfg.kpi.tf_target
     k2 = cfg.kpi2
@@ -277,8 +280,9 @@ def _adaptive(R, B, levels, base, cfg, rng, mode="bossard", start=None):
         tf_obs = c_tf / weeks
         if mode == "kpi2":
             miss_obs = np.where(c_tf + c_aok > 0, c_tf / np.maximum(c_tf + c_aok, 1), 0.0)
-            up = (miss_obs > k2.miss_rate) | (tf_obs > t_tf)
-            down = (~up) & (c_tm / weeks > k2.tm_per_week) & (miss_obs <= k2.miss_rate / 2)
+            up = ((miss_obs > k2.miss_rate) | (tf_obs > t_tf)) & (c_tf >= min_tf)
+            dm = k2.miss_rate / 2 if down_miss is None else down_miss
+            down = (~up) & (c_tm / weeks > k2.tm_per_week) & (miss_obs <= dm) & (c_aok + c_tf >= min_picks_down)
         else:
             up = tf_obs > t_tf
             down = (~up) & (frac_obs > t_tm) & (tf_obs <= cfg.policy.tf_safety * t_tf)

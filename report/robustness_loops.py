@@ -371,6 +371,154 @@ def watch_tables(con, ds, cfg):
     return delay, pd.DataFrame(rows)
 
 
+def rule_variants(ds, loops, cfg, tab):
+    """The two-weekly rule P7 with stricter variants: a step up needs >= 2 misses, and/or a step down needs
+    <= 3% missed. Same random streams and replications as P7 in the pipeline."""
+    from smartbin.analysis import policy as pol
+    effects = pd.read_csv(tab / "m2_sensitivity__effects.csv")
+    rates = pol._baseline_rates(ds, cfg)
+    betas = pol._betas(effects, cfg)
+    base = float(cfg.analysis.baseline_sensitivity)
+    lf = loops[loops["loop"].astype(bool) & (loops.sensitivity == base)]
+    loop_ids = set(lf.deviceid)
+    reps = int(getattr(cfg.policy, "replications", 5))
+    k2 = cfg.kpi2
+    variants = [("P7 as recommended", dict()), ("up needs 2+ misses", dict(min_tf=2)),
+                ("down needs <= 3% missed", dict(down_miss=0.03)),
+                ("both", dict(min_tf=2, down_miss=0.03)), ("down needs no miss at all", dict(down_miss=0.0)),
+                ("down needs 5+ picks seen", dict(min_picks_down=5)), ("down needs 10+ picks seen", dict(min_picks_down=10))]
+    rows = []
+    for scale_i, (scale, R) in enumerate(rates.groupby("scale_type")):
+        B = betas[betas.scale_type == scale].set_index("sensitivity").sort_index()
+        levels = list(B.index)
+        P = {k: pol._predict(R, B.loc[k]) for k in levels}
+        mpd = pd.DataFrame({k: P[k].mpd for k in levels})
+        tfw = pd.DataFrame({k: P[k].tfw for k in levels})
+        tmw = pd.DataFrame({k: P[k].tm_w for k in levels})
+        miss = pd.DataFrame({k: P[k].tfw / (P[k].tfw + P[k].aok_w) for k in levels})
+        Rt = pd.concat([R] * reps, ignore_index=True)
+        for name, kw in variants:
+            rng = np.random.default_rng([int(cfg.policy.seed), scale_i, pol.POLICIES.index("P7 start 7 + rule (KPI 2.0)")])
+            k, _, ch = pol._adaptive(Rt, B, levels, base, cfg, rng, mode="kpi2", start=7.0, **kw)
+            col = np.array([levels.index(x) for x in k])
+            pick = lambda T: np.tile(T.values, (reps, 1))[np.arange(len(k)), col]
+            m, ms, t, tw = pick(mpd), pick(miss), pick(tfw), pick(tmw)
+            m0 = np.tile(mpd[base].values, reps)
+            nl = ~np.tile(R.deviceid.isin(loop_ids).values, reps)
+            rows.append(dict(scale_type=scale, variant=name,
+                             weighings_change_pct=(m[nl].sum() / m0[nl].sum() - 1) * 100,
+                             median_miss_rate=float(np.nanmedian(ms)),
+                             share_scales_miss_le_10pct=float(np.mean(np.nan_to_num(ms) <= k2.miss_rate)),
+                             share_in_target_kpi2=float(np.mean((tw <= k2.tm_per_week) & (np.nan_to_num(ms) <= k2.miss_rate)
+                                                                & (t <= cfg.kpi.tf_target))),
+                             setting_changes_per_scale_month=ch))
+    return pd.DataFrame(rows)
+
+
+def neighbour_by_level(con, loops, cfg):
+    """After a real pick, how likely is a neighbour on setting k (same site, active that day) to wake up empty
+    within +-14 s - minus the same probability in a control window 60-88 s later? Looping scales and setting 3
+    left out. Exposure = picks x active neighbours on setting k at that site and day."""
+    lv = loops[loops["loop"].astype(bool)][["deviceid"]].drop_duplicates()
+    con.register("loopdev_df", lv)
+    con.execute("CREATE OR REPLACE TEMP TABLE loopdev AS SELECT * FROM loopdev_df")
+    std = ", ".join(str(float(x)) for x in cfg.cleaning.standard_delay)
+    d0 = float(cfg.cleaning.standard_delay[0])
+    base_where = f"""location_id IS NOT NULL AND exclusion_reason IS NULL AND coalesce(delay, {d0}) IN ({std})
+                     AND deviceid NOT IN (SELECT deviceid FROM loopdev)"""
+    con.execute(f"""CREATE OR REPLACE TEMP TABLE act AS
+        SELECT location_id, day, deviceid, any_value(scale_type) AS scale_type, mode(sensitivity) AS sensitivity
+        FROM events WHERE {base_where} GROUP BY ALL""")
+    con.execute(f"""CREATE OR REPLACE TEMP TABLE pk AS
+        SELECT rid, location_id, day, deviceid, ts, CAST(floor(ts / {W}) AS BIGINT) AS b
+        FROM events WHERE is_auto AND cls = 'OK' AND {base_where}""")
+    con.execute(f"""CREATE OR REPLACE TEMP TABLE tmn AS
+        SELECT e.location_id, e.deviceid, e.ts, e.scale_type, e.sensitivity, CAST(floor(e.ts / {W}) AS BIGINT) + o AS b
+        FROM events e, (SELECT unnest([-1, 0, 1]) AS o)
+        WHERE e.is_auto AND e.cls = 'TOO_MANY' AND {base_where.replace('location_id', 'e.location_id').replace('exclusion_reason', 'e.exclusion_reason').replace('coalesce(delay', 'coalesce(e.delay').replace('deviceid NOT', 'e.deviceid NOT')}""")
+    hits = con.execute(f"""
+        WITH pairs AS (
+            SELECT p.rid, t.deviceid AS nb, t.scale_type, t.sensitivity,
+                   bool_or(abs(t.ts - p.ts) <= {NEAR}) AS near,
+                   bool_or((t.ts - p.ts) BETWEEN {CTRL0} AND {CTRL0 + 2 * NEAR}) AS ctrl
+            FROM pk p JOIN tmn t ON t.location_id = p.location_id AND t.b = p.b
+            WHERE t.deviceid <> p.deviceid AND abs(t.ts - p.ts) <= {W} GROUP BY ALL)
+        SELECT scale_type, sensitivity, sum(near::INT) AS near_pairs, sum(ctrl::INT) AS ctrl_pairs
+        FROM pairs GROUP BY ALL""").df()
+    expo = con.execute("""
+        WITH c AS (SELECT location_id, day, scale_type, sensitivity, count(*) AS n FROM act GROUP BY ALL),
+             own AS (SELECT p.rid, a.scale_type, a.sensitivity FROM pk p JOIN act a USING (location_id, day, deviceid))
+        SELECT c.scale_type, c.sensitivity,
+               sum(c.n) - sum(CASE WHEN own.scale_type = c.scale_type AND own.sensitivity = c.sensitivity THEN 1 ELSE 0 END)
+                   AS exposure
+        FROM pk p JOIN c USING (location_id, day) LEFT JOIN own ON own.rid = p.rid GROUP BY ALL""").df()
+    out = expo.merge(hits, on=["scale_type", "sensitivity"], how="left").fillna(0)
+    out["p_near"] = out.near_pairs / out.exposure
+    out["p_chance"] = out.ctrl_pairs / out.exposure
+    out["woken_per_1000_pairs"] = (out.p_near - out.p_chance) * 1000
+    return out.sort_values(["scale_type", "sensitivity"])
+
+
+def barcode(con, loops):
+    """Minute of the day of every automatic wake-up on one day: the example looping scale and a busy normal
+    scale (wake-ups per day close to the 99th percentile of normal scale-levels). No IDs."""
+    lf = loops[loops.loop & (loops.sensitivity != 3.0)]
+    med = lf.auto_per_day.median()
+    lp = lf.iloc[(lf.auto_per_day - med).abs().argsort().iloc[0]]
+    nm = loops[~loops.loop]
+    target = nm.auto_per_day.quantile(0.99)
+    np_ = nm.iloc[(nm.auto_per_day - target).abs().argsort().iloc[0]]
+    rows = []
+    for lab, r in [("looping scale", lp), ("busy normal scale", np_)]:
+        day = con.execute("""SELECT day FROM events WHERE deviceid = ? AND sensitivity = ? AND is_auto
+                             GROUP BY day ORDER BY count(*) DESC LIMIT 1 OFFSET 1""", [r.deviceid, r.sensitivity]).fetchone()[0]
+        t = con.execute("""SELECT hour * 60 + minute(weighttime) + second(weighttime) / 60.0 AS minute_of_day, cls
+                           FROM events WHERE deviceid = ? AND day = ? AND is_auto ORDER BY ts""", [r.deviceid, day]).df()
+        t["series"] = lab
+        t["share_retrigger"] = float(r.share_retrigger)
+        t["auto_per_day_level"] = float(r.auto_per_day)
+        rows.append(t)
+    return pd.concat(rows, ignore_index=True)
+
+
+def loop_persistence(con, loops):
+    """For every looping scale: its consecutive periods on one setting, and whether it looped in each period.
+    Answers: does a loop stop when the setting changes, and does it come back when the setting comes back?"""
+    ids = sorted(set(loops[loops.loop].deviceid))
+    con.register("ids_df", pd.DataFrame({"deviceid": ids}))
+    seg = con.execute("""
+        WITH a AS (SELECT deviceid, ts, day, sensitivity, gap_s, prev_initiator,
+                          lag(sensitivity) OVER (PARTITION BY deviceid ORDER BY ts) AS prev_s
+                   FROM events WHERE is_auto AND sensitivity IS NOT NULL AND deviceid IN (SELECT deviceid FROM ids_df)),
+             b AS (SELECT *, sum(CASE WHEN prev_s IS NULL OR prev_s <> sensitivity THEN 1 ELSE 0 END)
+                             OVER (PARTITION BY deviceid ORDER BY ts) AS seg FROM a)
+        SELECT deviceid, seg, any_value(sensitivity) AS sensitivity, min(ts) AS t0, count(DISTINCT day) AS days,
+               count(*) / count(DISTINCT day) AS per_day,
+               avg(CASE WHEN gap_s <= 120 AND prev_initiator = 'AUTOMATIC' THEN 1.0 ELSE 0 END) AS share_retrigger
+        FROM b GROUP BY ALL HAVING count(DISTINCT day) >= 3""").df()
+    seg["loop"] = (seg.share_retrigger > 0.5) & (seg.per_day > 20)
+    seg = seg.sort_values(["deviceid", "t0"])
+    rows = []
+    for dev, g in seg.groupby("deviceid"):
+        lv = g[g.loop].sensitivity.unique()
+        for s_ in lv:
+            on = g[g.sensitivity == s_]
+            rows.append(dict(looping_setting=s_, periods_on_setting=len(on), periods_looping=int(on.loop.sum()),
+                             left_and_came_back=len(on) >= 2,
+                             loop_again_after_return=bool(len(on) >= 2 and on.loop.iloc[1:].any() and on.loop.iloc[0]),
+                             other_periods=int((g.sensitivity != s_).sum()),
+                             other_periods_looping=int(g[g.sensitivity != s_].loop.sum())))
+    d = pd.DataFrame(rows)
+    d["group"] = np.where(d.looping_setting == 3.0, "loop on level 3", "loop on another level")
+    summ = d.groupby("group").agg(scale_settings=("looping_setting", "size"),
+                                  with_other_periods=("other_periods", lambda x: int((x > 0).sum())),
+                                  other_periods_total=("other_periods", "sum"),
+                                  other_periods_looping=("other_periods_looping", "sum"),
+                                  left_and_came_back=("left_and_came_back", "sum"),
+                                  loop_again_after_return=("loop_again_after_return", "sum")).reset_index()
+    return summ
+
+
 def loop_grid(loops, total_auto):
     rows = []
     for share in (0.3, 0.4, 0.5, 0.6, 0.7):
@@ -430,6 +578,18 @@ def main():
     if "watch" in parts:
         res["miss_delay_buckets"], res["too_few_concentration"] = watch_tables(con, ds, cfg)
         print(res["miss_delay_buckets"].to_string())
+    if "variants" in parts:
+        res["rule_variants"] = rule_variants(ds, loops, cfg, tab)
+        print(res["rule_variants"].round(3).to_string(), flush=True)
+    if "neighbours" in parts:
+        res["neighbour_by_level"] = neighbour_by_level(con, loops, cfg)
+        print(res["neighbour_by_level"].round(4).to_string(), flush=True)
+    if "barcode" in parts:
+        res["example_barcode"] = barcode(con, loops)
+        print(res["example_barcode"].groupby("series").agg(n=("cls", "size"), r=("share_retrigger", "first")))
+    if "persistence" in parts:
+        res["loop_persistence"] = loop_persistence(con, loops)
+        print(res["loop_persistence"].to_string(), flush=True)
     if "bins" in parts:
         res["loop_detector_bins"] = loop_detector_bins(loops)
         print(res["loop_detector_bins"].describe().round(2).to_string())
