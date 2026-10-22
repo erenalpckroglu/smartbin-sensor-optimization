@@ -118,14 +118,14 @@ powershell -ExecutionPolicy Bypass -File run_bossard.ps1   # Windows
 
 ## Report and presentation
 
-- `presentation/SmartBin – CTO presentation.pptx` – the deck for the client's CTO: problem, findings, flag-tune-watch, result, next steps (18 slides + 6 backup), plain language, charts instead of text, short speaker notes. Fonts: DM Sans and Space Grotesk (free Google fonts).
+- `presentation/SmartBin – CTO presentation.pptx` – the deck for the client's CTO: problem, findings, flag-tune-watch, result, next steps (20 slides + 6 backup), plain language, charts instead of text, short speaker notes. Fonts: DM Sans and Space Grotesk (free Google fonts).
 - `report/report.pdf` – the written report (Quarto with the Typst engine, 18 pages).
 
 After a full pipeline run both are rebuilt with:
 
 ```bash
 python report/build_figures.py --reports reports/bossard --processed data/processed --db data/interim/smartbin.duckdb
-python report/robustness_loops.py --db data/interim/smartbin.duckdb --parts knob,policy,coupling,extra,bins,examples
+python report/robustness_loops.py --db data/interim/smartbin.duckdb --parts knob,policy,coupling,extra,bins,examples,loopevidence,watch,variants,neighbours,barcode,persistence
 quarto render report/report.qmd
 python presentation/build_cto_deck.py
 ```
