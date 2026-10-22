@@ -22,7 +22,7 @@ import pandas as pd
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from build_deck import REFS, facts, mi, n0, pc, rd, sp  # noqa: E402  (numbers and sources shared with the long deck)
+from deck_facts import REFS, facts, mi, n0, pc, rd  # noqa: E402
 
 CHARTS = HERE / "charts_cto"
 DECK = HERE / "SmartBin – CTO presentation.pptx"
@@ -1003,7 +1003,7 @@ So the question is simple. How should the sensor be set?""")
         if i < 3:
             arrow(s, x + cw4 + 0.02, y2 + 0.38, x + cw4 + g4 - 0.02, y2 + 0.38)
     x = LM
-    for t in ["Python", "DuckDB", "Power BI", "Quarto", "Tested on simulated data first"]:
+    for t in ["Python", "DuckDB", "Quarto", "Tested on simulated data first"]:
         x = pill(s, x, y2 + 2.75, t, color=PERI if t.startswith("Tested") else MINT) + 0.12
     footer(s, OWN + " · Report §2–3, Appendix A", d.n)
     notes(s, f"""(1 minute)
@@ -1033,8 +1033,7 @@ Almost every scale meets Bossard's target for missed picks.
 But almost no scale meets the target for empty wake-ups.
 A typical 20 kg scale wakes up for nothing about {b.loc['20kg', 'too_many_per_week_median']:.0f} times a week. It sees only one or two real picks.
 So the sensor is set too sensitive. There is room to turn it down.
-The real question is how far we can go before we start missing picks.
-If the Power BI report is open, this page can be shown live here.""")
+The real question is how far we can go before we start missing picks.""")
 
     # ---- 5 KPI misleads -------------------------------------------------------------------------
     s = d.slide()
@@ -1179,8 +1178,7 @@ No. On the left, every bar is a factory. Same setting, very different results.
 On the right is what makes the biggest difference. The factory, and how often a bin is used.
 Box type and item weight matter much less. But those are the only things Bossard knows before a scale is installed.
 We also tested a table by pick size. It chose the same setting for almost every scale.
-So the best setting cannot be looked up. Each scale has to learn it.
-If the Power BI report is open, the factory page fits here.""")
+So the best setting cannot be looked up. Each scale has to learn it.""")
 
     # ---- 11 solution ----------------------------------------------------------------------------
     s = d.slide()
@@ -1352,7 +1350,7 @@ Bundling wake-ups is a nice firmware idea for later, but it adds only a little."
     s = d.slide()
     y = head(s, "NEXT STEPS", "Start the safe steps now – let a pilot decide the rest")
     phases = [("NOW", MINT, ["Run the daily loop check", "Remove setting 3 from the menu", "Default setting 8 → 7",
-                             "Show KPI 2.0 in the dashboard"]),
+                             "Report KPI 2.0 for every scale"]),
               ("PILOT · 8 WEEKS", MINT, ["Rule in about 10 factories", "Compare with similar factories without it",
                                          "Fine-tune the step-down threshold"]),
               ("IN PARALLEL", PERI, ["Vibration test in the 10 most affected factories", "Firmware fix for the loops",
@@ -1469,7 +1467,7 @@ Our limits are simple. We have one season of data, and the April change was not 
             ("Build tables", "weight change per weighing; one record per scale and setting"),
             ("Analyse", "today, the setting, parameters, factories, pick size, picks nearby, simulation"),
             ("Validate", "a simulated fleet with known answers – the pipeline must find them first"),
-            ("Report", "tables for Power BI, figures, the written report and both decks"),
+            ("Report", "summary tables, figures, the written report and this deck"),
             ("Robustness", "every key result again without the looping scales")]
     table(s, LM, y, 7.6, [2.0, 5.6], [["Step", "What it does"]] + [[a, bb] for a, bb in mods], size=12.5,
           row_h=0.52, align="ll")
@@ -1478,7 +1476,7 @@ Our limits are simple. We have one season of data, and the April change was not 
     tb(s, 9.0, y + 0.55, 3.3, 3.0, ["bash run_bossard.sh", "python report/build_figures.py",
                                     "python report/robustness_loops.py", "quarto render report/report.qmd",
                                     "python presentation/build_cto_deck.py"], size=11.5, color=SOFT, space_after=5)
-    tb(s, LM, y + 3.95, CW, 0.4, "Raw data and Power BI files never go into the repository – only summary tables.",
+    tb(s, LM, y + 3.95, CW, 0.4, "Raw data never goes into the repository – only summary tables.",
        size=12.5, color=TXT)
     footer(s, "Source: project repository (private)", d.n)
     notes(s, "For the data scientists in the room. Everything can be rebuilt from the three raw files.")
