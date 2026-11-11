@@ -6,7 +6,7 @@
 > Case from the HSLU MSc *Data-Driven Supply Chain Management & Logistics* module (Bossard AG × D ONE).
 > The confidential fleet data is **not** included. `make demo` runs the full pipeline on a realistic synthetic fleet instead.
 >
-> **Status: final (presentation 23 Oct 2026).** Pipeline, written report and the CTO deck are complete.
+> **Status: v2 (November 2026).** The deck was revised after the feedback of Bossard and D ONE on the interim presentation (see *What changed in v2*). v1 is the tag `v1.0`.
 
 ## The answer in one paragraph
 
@@ -15,10 +15,22 @@ The right sensitivity is not in the master data: box type and item weight matter
 | Part | What | Effect in the data / simulation |
 |---|---|---|
 | **Flag** | daily trigger-loop detector, looping scales to service, level 3 off the menu | 1.5% of the scales caused 27% of all automatic weighings (mostly during the April trial of level 3) |
-| **Tune** | start on level 7; every two weeks one step less sensitive if > 7 empty wake-ups a week and ≤ 5% missed, one step more sensitive if > 10% missed or > 2 TOO_FEW a week; 6 kg and 20 kg monitored apart | −61% (20 kg) / −55% (6 kg) weighings, median missed changes 11–12% |
+| **Tune** | start on level 7; every two weeks one step less sensitive if > 7 empty wake-ups a week and ≤ 5% missed, one step more sensitive if > 10% missed or > 2 TOO_FEW a week; 6 kg and 20 kg monitored apart | measured on real scales: the step from 8 to 7 removes 52% (20 kg) / 59% (6 kg) of the empty wake-ups, typical miss rate 4% / 9%; the rest of the rule is for a pilot |
 | **Watch** | KPI 2.0 per scale, the 24 h idle check as safety net, a watch list for the few scales where misses concentrate, an alarm for scales without a weighing for 48 h | misses found after a median of 33–38 h, 76–83% within 48 h; no nightly check for every scale |
 
-Key insight: once the looping scales are left out, 55% of the empty wake-ups coincide with a real pick at another bin of the same site within ±14 s (beyond chance; a placebo site gives 0.7%). Every key result holds without the looping scales (`report/robustness_loops.py`, report Appendix C).
+A signal to check on site: once the looping scales are left out, 55% of the empty wake-ups coincide with a real pick at another bin of the same site within ±14 s (beyond chance; a placebo site gives 0.7%). Shelf positions are not in the data, so this needs a vibration test before any fix. Every key result holds without the looping scales (`report/robustness_loops.py`, report Appendix C).
+
+### What changed in v2
+
+| Feedback | Change in the deck |
+|---|---|
+| Too much content for 15 to 20 minutes | 14 main slides instead of 20; the data checks table moved to the backup |
+| The replay simulation was not explained | Removed with all its results; every effect on a main slide is measured on real scales (difference in differences on the April switchers) |
+| Picks nearby need more scrutiny | Shown as a signal to check on site, with what is still open; the checks moved to the backup |
+| Battery life was not defined | Defined in the backup: 3,000× sleep power (case description) and an assumed 2 s per measurement, shown for 1 to 5 s; no battery saving in the main deck |
+| Time stamps are UTC, clients are global | Night and weekend shares removed; the loop check uses only the time between wake-ups; listed as a limit |
+
+The written report (`report/report.pdf`) is still the v1 text and includes the simulation.
 
 Rejected after testing: one level for all, a table by pick size, steering by the TOO_MANY fraction, quiet hours, a longer minimum wait time (not measurable). Merging bursts of wake-ups is an optional firmware item.
 
@@ -118,7 +130,7 @@ powershell -ExecutionPolicy Bypass -File run_bossard.ps1   # Windows
 
 ## Report and presentation
 
-- `presentation/SmartBin – CTO presentation.pptx` – the deck for the client's CTO: problem, findings, flag-tune-watch, result, next steps (20 slides + 6 backup), plain language, charts instead of text, short speaker notes. Fonts: DM Sans and Space Grotesk (free Google fonts).
+- `presentation/SmartBin – presentation.pptx`: the deck for the client's CTO (v2): problem, findings, flag-tune-watch, next steps (16 slides + 6 backup), plain language, charts instead of text, short speaker notes. Fonts: DM Sans and Space Grotesk (free Google fonts).
 - `report/report.pdf` – the written report (Quarto with the Typst engine, 18 pages).
 
 After a full pipeline run both are rebuilt with:
