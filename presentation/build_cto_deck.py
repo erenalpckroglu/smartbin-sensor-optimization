@@ -914,7 +914,7 @@ def head(s, eyebrow, title, size=28):
 
 
 def footer(s, text, number):
-    tb(s, LM, 7.02, 10.8, 0.25, text, size=9, color=MUTED, line=1.0)
+    # v2: no source line on the slides (sources are in the report); only the slide number
     tb(s, 11.95, 7.02, 0.5, 0.25, str(number), size=9, color=MUTED, align="r")
 
 
@@ -1340,8 +1340,8 @@ We removed these scales and repeated all our analyses. The results did not chang
     xr = 8.7
     card(s, xr, y - 0.05, 3.75, 1.75, accent=PERI, strong=True)
     tb(s, xr + 0.25, y + 0.02, 3.3, 0.8, pc(c_both), size=44, family=HEAD, bold=True, color=PERI)
-    tb(s, xr + 0.25, y + 0.85, 3.3, 0.8, "of empty wake-ups come within 14 s of a pick at the same site, above "
-       "chance", size=12, color=SOFT, line=1.1)
+    tb(s, xr + 0.25, y + 0.85, 3.3, 0.8, f"of empty wake-ups come within 14 s of a pick at the same site, above "
+       f"chance ({pc(c_both_all)} if looping scales are included)", size=12, color=SOFT, line=1.1)
     card(s, xr, y + 1.85, 3.75, 2.15)
     tb(s, xr + 0.22, y + 1.97, 3.3, 0.3, "WHAT IS STILL OPEN", size=10, bold=True, color=AMBER, spc=100)
     tb(s, xr + 0.22, y + 2.3, 3.35, 1.7, ["• Which bins share a shelf. The data only knows the site.",
@@ -1440,7 +1440,7 @@ Then three steps. Set the scale back to 7 from the cloud. If it still loops afte
     xr = 6.85
     tb(s, xr, y - 0.05, 5.6, 0.3, "EXAMPLE · A BUSY 20 KG SCALE", size=10.5, bold=True, color=MINT, spc=120)
     pic(s, ch_tune_example(plt, N, R, 5.7, 3.3), xr - 0.1, y + 0.3, w=5.7)
-    tb(s, xr, y + 3.65, 5.5, 0.6, "Each move is one step. The measured effect of each step is on the setting slide.",
+    tb(s, xr, y + 3.65, 5.5, 0.6, "Illustrative example. The measured effect of each step is on the setting slide.",
        size=12.5, color=TXT, line=1.12)
     footer(s, "Illustrative example · the rule is to be tested in the pilot · Report §6.2", d.n)
     notes(s, """This is the heart of the solution, and it is simple.
