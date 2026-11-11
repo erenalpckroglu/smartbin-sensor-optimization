@@ -3,7 +3,8 @@ Client deck for the CTO: SmartBin Cloud sensor sensitivity. 16:9 PowerPoint with
 
     python presentation/build_cto_deck.py
 
-Story: the problem -> what we found -> what we recommend (flag, tune, watch) -> result -> next steps.
+Story (v2): the problem -> what we found -> what we recommend (flag, tune, watch) -> next steps. Every effect on
+a main slide is measured on real scales; the replay simulation of v1 is no longer part of the deck.
 Plain language, one message per slide, charts instead of text. Reads only the aggregated tables in report/data/
 (report/build_figures.py and report/robustness_loops.py), draws the charts into presentation/charts_cto/ and
 writes the deck. Every number on a slide is computed from those tables.
@@ -25,7 +26,7 @@ sys.path.insert(0, str(HERE))
 from deck_facts import REFS, facts, mi, n0, pc, rd  # noqa: E402
 
 CHARTS = HERE / "charts_cto"
-DECK = HERE / "SmartBin – CTO presentation.pptx"
+DECK = HERE / "SmartBin – presentation.pptx"
 
 # ---------------------------------------------------------------------------------------------
 # design tokens
@@ -105,7 +106,7 @@ def mpl():
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     plt.rcParams.update({
-        "font.family": BODY, "font.size": 12.5, "axes.labelsize": 12.5, "axes.labelcolor": "#" + TXT,
+        "font.family": [BODY, "DejaVu Sans"], "font.size": 12.5, "axes.labelsize": 12.5, "axes.labelcolor": "#" + TXT,
         "xtick.labelsize": 12, "ytick.labelsize": 12, "xtick.color": "#" + TXT, "ytick.color": "#" + TXT,
         "axes.edgecolor": AXIS, "axes.linewidth": 0.8, "axes.spines.top": False, "axes.spines.right": False,
         "axes.grid": True, "axes.grid.axis": "y", "grid.color": GRID, "grid.linewidth": 0.8,
@@ -281,13 +282,11 @@ def ch_loopday(plt, N, R, w, h):
 
 def ch_loop_evidence(plt, N, R, w, h):
     p, cp = R["lev_prof"], R["lev_coup"]
-    rows = [("at night (0 to 5 am)", p.loc["trigger loop", "share_night_0_5h"], p.loc["normal", "share_night_0_5h"]),
-            ("at the weekend", p.loc["trigger loop", "share_weekend"], p.loc["normal", "share_weekend"]),
-            ("about 90 s after the last one", p.loc["trigger loop", "share_gap_85_95s"], p.loc["normal", "share_gap_85_95s"]),
+    rows = [("about 90 s after the last one", p.loc["trigger loop", "share_gap_85_95s"], p.loc["normal", "share_gap_85_95s"]),
             ("when someone picks nearby", max(cp.loc["trigger loop", "coupled_beyond_chance"], 0),
              cp.loc["normal", "coupled_beyond_chance"])]
     fig, ax = plt.subplots(figsize=(w, h))
-    fig.subplots_adjust(left=0.44, right=0.95, top=0.86, bottom=0.1)
+    fig.subplots_adjust(left=0.44, right=0.95, top=0.74, bottom=0.05)
     ys = np.arange(len(rows))[::-1].astype(float)
     for j, (col, off) in enumerate([(CORAL, 0.18), (MINT, -0.18)]):
         vals = [r[1 + j] * 100 for r in rows]
@@ -619,7 +618,7 @@ def ch_barcode(plt, N, R, w, h):
     b = R["barcode"]
     rows = [("looping scale", CORAL), ("busy normal scale", MINT)]
     fig, ax = plt.subplots(figsize=(w, h))
-    fig.subplots_adjust(left=0.03, right=0.98, top=0.86, bottom=0.2)
+    fig.subplots_adjust(left=0.03, right=0.95, top=0.86, bottom=0.2)
     for i, (lab, col) in enumerate(rows):
         x = b[b.series == lab].minute_of_day / 60
         y0 = 1 - i
@@ -632,7 +631,7 @@ def ch_barcode(plt, N, R, w, h):
     ax.set_xticks([0, 6, 12, 18, 24], ["0 h", "6 h", "12 h", "18 h", "24 h"])
     ax.grid(False)
     ax.spines["left"].set_visible(False)
-    ax.set_xlabel("one day, every line is one wake-up", fontsize=11.5)
+    ax.set_xlabel("one day (UTC), every line is one wake-up", fontsize=11.5)
     return save(fig, "k07_barcode")
 
 
@@ -1077,29 +1076,22 @@ def build():
     R = robust_facts()
     plt = mpl()
     b = N["base"]
-    pol, P = N["pol"], N["P"]
     rk, coup = R["knob"], R["coup"]
+    bk = R["bk"]
     d = Deck()
 
     pct0 = lambda v: mi(f"{v:.0f}") + "%"
     c_both = coup.loc["both", "coupled_beyond_chance"]
     c_both_all = R["coup_all"].loc["both", "coupled_beyond_chance"]
-    p7 = {st: pol.loc[(st, P["P7"])] for st in SCALES}
-    p7_nl = {st: R["pol_nl"].loc[(st, P["P7"])] for st in SCALES}
-    p0 = {st: pol.loc[(st, P["P0"])] for st in SCALES}
-    save20, save6 = -p7["20kg"].meas_change_pct_without_loops, -p7["6kg"].meas_change_pct_without_loops
-    miss20, miss6 = p7["20kg"].median_miss_rate, p7["6kg"].median_miss_rate
-    empty_cut = {st: 1 - p7[st].median_tm_week / p0[st].median_tm_week for st in SCALES}
     loop_share = N["loop_share_auto"]
     picks20 = R["base"].loc[("all scales", "20kg"), "picks_per_week"]
-    fleet = N["fleet_saved_week"]
-    lo3, loth = R["lev_other"].loc["loop on level 3"], R["lev_other"].loc["loop on another level"]
+    lo3 = R["lev_other"].loc["loop on level 3"]
     pers = R["persist"].loc["loop on another level"]
     e7 = {st: -rk.loc[(st, 7.0), "empty_wakeups_change"] for st in SCALES}
-    V = R["variants"]
-    v5 = {st: V.loc[(st, "down needs 5+ picks seen")] for st in SCALES}
-    ke = R["ke_all"]
+    miss8 = {st: bk.loc[st, "miss_rate_median"] * 100 for st in SCALES}
+    miss7 = {st: miss8[st] + rk.loc[(st, 7.0), "missed_pp"] for st in SCALES}
     fu = N["funnel"].set_index("rule").rows_removed
+    e7s = f"{pct0(-e7['20kg'] * 100)} / {pct0(-e7['6kg'] * 100)}"
 
     # ---- 1 title --------------------------------------------------------------------------------
     s = d.slide()
@@ -1109,26 +1101,27 @@ def build():
        color=WHITE, line=1.0)
     tb(s, LM, 3.15, 6.6, 0.9, "How each SmartBin scale can find its own sensor setting", size=19, color=TXT,
        line=1.15)
-    tb(s, LM, 6.3, 7, 0.3, "Erenalp Çakıroğlu - Nikolaos Georgantopoulos", size=15, family=HEAD, bold=True, color=WHITE)
+    tb(s, LM, 6.3, 7, 0.3, "Erenalp Çakıroğlu - Nikolaos Georgantopoulos", size=15, family=HEAD, bold=True,
+       color=WHITE)
     tb(s, LM, 6.62, 7, 0.3, "MSc Applied Information and Data Science · HSLU Lucerne", size=12.5, color=TXT)
-    stats = [(f"{pct0(-save20)} / {pct0(-save6)}", "fewer weighings with our rule", MINT),
-             (pc(c_both), "of empty wake-ups happen when someone picks nearby", PERI),
+    stats = [(f"{pc(bk.loc['20kg', 'frac_too_many_median'])}", "of the wake-ups of a typical 20 kg scale find "
+              "nothing", CORAL),
+             (e7s, "empty wake-ups when a scale goes from setting 8 to 7 (20 kg / 6 kg)", MINT),
              (f"{N['loop_share_scales'] * 100:.1f}% → {loop_share * 100:.0f}%",
-              "1.5% of the scales cause 27% of all weighings", CORAL)]
+              "1.5% of the scales cause 27% of all weighings", PERI)]
     y = 1.35
     for v, cap, col in stats:
         card(s, 8.45, y, 4.0, 1.42, accent=col)
         tb(s, 8.7, y + 0.18, 3.6, 0.6, v, size=30, family=HEAD, bold=True, color=col)
         tb(s, 8.7, y + 0.82, 3.6, 0.5, cap, size=12.5, color=SOFT, line=1.1)
         y += 1.62
-    notes(s, """Thank you for having us. This talk is about the SmartBin scales.
+    notes(s, """Thank you for having us. This presentation is about the SmartBin scales.
 Today most of their weighings find nothing.
 We looked at 7.6 million weighings and found out why.
-We also found a simple way for every scale to find its own setting.
-The three numbers on the right tell the whole story.
-We can cut the weighings by more than half.
-More than half of the empty wake-ups come from picking nearby.
-And a very small group of scales causes a quarter of the load.""")
+The three numbers on the right are the core.
+Nine out of ten wake-ups of a typical 20 kg scale find nothing.
+One step down on the setting removes about half of them. We measured that on real scales.
+And a very small group of scales causes a quarter of all weighings.""")
 
     # ---- 2 problem ------------------------------------------------------------------------------
     s = d.slide(alt=True)
@@ -1147,16 +1140,14 @@ And a very small group of scales causes a quarter of the load.""")
             arrow(s, x + bw + 0.03, y + 0.67, x + bw + gap - 0.03, y + 0.67)
     yy = y + 1.65
     cw2 = (4 * bw + 3 * gap - 0.25) / 2
-    for i, (t, body, col) in enumerate([("Too sensitive", "The scale wakes up, but nothing was taken. This wastes "
-                                          "battery, network and cloud capacity.", CORAL),
+    for i, (t, body, col) in enumerate([("Too sensitive", "The scale wakes up, but nothing was taken. This loads "
+                                          "the radio network, the cloud and ARIMS.", CORAL),
                                          ("Not sensitive enough", "The scale sleeps through a pick. The stock level is "
                                           "wrong until the next weighing.", AMBER)]):
         x = LM + i * (cw2 + 0.25)
         card(s, x, yy, cw2, 1.55, accent=col)
         tb(s, x + 0.2, yy + 0.18, cw2 - 0.4, 0.3, t, size=15, family=HEAD, bold=True, color=col)
         tb(s, x + 0.2, yy + 0.58, cw2 - 0.4, 0.9, body, size=12.5, color=TXT, line=1.12)
-    tb(s, LM, yy + 1.85, 7.5, 0.6, "Every weighing costs energy. It uses about 3,000 times more power than sleeping.",
-       size=12.5, color=SOFT)
     pic(s, ch_donut(plt, N, R, 3.6, 3.6), 8.95, y - 0.05, w=3.6)
     tb(s, 8.6, y + 3.7, 4.3, 0.6, f"{N['auto_all'] / 1e6:.1f} million automatic weighings, March to June 2022",
        size=12, color=TXT, align="c")
@@ -1165,7 +1156,7 @@ And a very small group of scales causes a quarter of the load.""")
 When a worker takes parts, a sensor feels the vibration and wakes the scale up.
 The scale weighs the bin and sends the new stock level to ARIMS. ARIMS then reorders.
 The problem is that three out of four of these weighings find nothing.
-Each one costs battery, network and cloud capacity.
+Each one loads the radio network, the cloud and ARIMS.
 If we make the sensor less sensitive, it may sleep through a real pick.
 Then the stock level is wrong for a while.
 So the question is simple. How should the sensor be set?""")
@@ -1175,7 +1166,6 @@ So the question is simple. How should the sensor be set?""")
     y = head(s, "TODAY", "Almost no scale misses picks. But almost every scale wakes up too often.")
     pic(s, ch_one_sided(plt, N, R, 6.7, 3.4), LM - 0.15, y - 0.05, w=6.7)
     xr = 7.75
-    bk = R["bk"]
     tf20, tf6 = bk.loc["20kg", "too_few_per_week_median"], bk.loc["6kg", "too_few_per_week_median"]
     rows_ = [("BOSSARD TARGET 1", "At most half of the wake-ups may be empty",
               f"Typical scale today: **{pc(bk.loc['20kg', 'frac_too_many_median'])} empty** (20 kg), "
@@ -1198,8 +1188,8 @@ So the question is simple. How should the sensor be set?""")
 Bossard has two targets. At most half of the wake-ups may be empty, and at most two missed picks per week.
 The typical 20 kg scale has about ninety percent empty wake-ups. So almost no scale meets the first target.
 Missed picks are rare. The typical 20 kg scale misses about one pick every eight weeks. So almost every scale meets the second target.
-In numbers, a typical 20 kg scale wakes up for nothing about {b.loc['20kg', 'too_many_per_week_median']:.0f} times a week and sees only one or two real picks.
-So the sensor is set too sensitive. There is room to turn it down. The question is how far we can go before we start missing picks.""")
+A typical 20 kg scale wakes up for nothing about {b.loc['20kg', 'too_many_per_week_median']:.0f} times a week and sees only one or two real picks.
+So the sensor is set too sensitive. The question is how far we can turn it down before we start missing picks.""")
 
     # ---- 4 data and approach --------------------------------------------------------------------
     s = d.slide(alt=True)
@@ -1210,67 +1200,33 @@ So the sensor is set too sensitive. There is room to turn it down. The question 
     for i, (v, cap) in enumerate(stats):
         big(s, LM + i * sw_, y - 0.1, sw_ - 0.2, v, cap, size=34, cap_size=13)
     y2 = y + 1.3
-    steps = [("1", "Check", f"We removed only broken rows. {pc(N['share_main'])} of all rows are used for the "
-              "KPIs. Details on the next slide."),
-             ("2", "Measure", "One result per scale and setting. We use the typical scale (the median), so a few "
+    steps = [("1", "Check", f"We deleted only broken rows. {N['rows_main'] / 1e6:.2f} M of {N['rows'] / 1e6:.1f} M "
+              f"rows ({pc(N['share_main'])}) are used for the KPIs. The table is in the backup."),
+             ("2", "Measure", "One result per scale and setting. We report the typical scale (the median), so a few "
               "noisy scales cannot distort the result."),
              ("3", "Compare", f"In April, {N['switchers']:,} scales got a new setting. We compare each one with "
-              "itself before the change."),
-             ("4", "Simulate", "We tested 9 ways to set the sensor on every scale and compared the results.")]
-    cw4, g4 = (CW - 3 * 0.22) / 4, 0.22
+              "itself before the change, minus the trend of scales that kept setting 8.")]
+    cw3, g3 = (CW - 2 * 0.25) / 3, 0.25
     for i, (num, t, body) in enumerate(steps):
-        x = LM + i * (cw4 + g4)
-        col = MINT if i < 3 else PERI
-        card(s, x, y2, cw4, 2.45, accent=col)
-        badge(s, x + 0.2, y2 + 0.2, 0.36, num, fill=col)
-        tb(s, x + 0.68, y2 + 0.22, cw4 - 0.8, 0.35, t, size=16, family=HEAD, bold=True, color=WHITE)
-        tb(s, x + 0.2, y2 + 0.8, cw4 - 0.4, 1.6, body, size=12.5, color=TXT, line=1.13)
-        if i < 3:
-            arrow(s, x + cw4 + 0.02, y2 + 0.38, x + cw4 + g4 - 0.02, y2 + 0.38)
+        x = LM + i * (cw3 + g3)
+        card(s, x, y2, cw3, 2.3, accent=MINT)
+        badge(s, x + 0.2, y2 + 0.2, 0.36, num)
+        tb(s, x + 0.68, y2 + 0.22, cw3 - 0.8, 0.35, t, size=16, family=HEAD, bold=True, color=WHITE)
+        tb(s, x + 0.2, y2 + 0.8, cw3 - 0.4, 1.45, body, size=13, color=TXT, line=1.13)
+        if i < 2:
+            arrow(s, x + cw3 + 0.02, y2 + 0.38, x + cw3 + g3 - 0.02, y2 + 0.38)
     x = LM
-    for t in ["Python", "DuckDB", "Quarto", "Tested on simulated data first"]:
-        x = pill(s, x, y2 + 2.75, t, color=PERI if t.startswith("Tested") else MINT) + 0.12
+    for t in ["Python", "DuckDB", "Quarto", "Tested on synthetic data first"]:
+        x = pill(s, x, y2 + 2.6, t, color=PERI if t.startswith("Tested") else MINT) + 0.12
     footer(s, OWN + " · Report §2 and §3, Appendix A", d.n)
-    notes(s, f"""We had 7.6 million weighings from {N['scales']:,} scales over 16 weeks. That is all the data we received.
-First we checked the data and removed only what was broken.
-Then we measured each scale on its own. We use the typical scale, so a few noisy scales cannot distort the picture.
-The most useful part of the data is April. Bossard gave {N['switchers']:,} scales a new setting. So we can compare the same scale before and after.
-Finally we simulated nine ways to set the sensor.
-The whole analysis can be run again in about one minute.""")
+    notes(s, f"""We had 7.6 million weighings from {N['scales']:,} scales over 16 weeks.
+First we checked the data. We deleted only rows that were clearly broken. About 70 percent of all rows go into the KPIs. The details are in the backup.
+Then we measured each scale on its own, and we report the typical scale.
+The most useful part of the data is April. Bossard gave {N['switchers']:,} scales a new setting. So we can compare the same scale before and after, and remove the general trend with the scales that kept their setting.
+Every effect in this presentation comes from that comparison on real scales.""")
 
-    # ---- 5 cleaning table -----------------------------------------------------------------------
+    # ---- 5 KPI ----------------------------------------------------------------------------------
     s = d.slide()
-    y = head(s, "DATA AND APPROACH · CHECKS", "What we removed, and what we kept")
-    rows = [["Check", "Rows", "What it means", "Action"],
-            ["Duplicate rows", f"{fu['A2_duplicate']:,}", "Same scale, same time to the millisecond", "deleted"],
-            ["Impossible weights", f"{fu['A5_weight_invalid']:,}", "144 kg to 50 t on a 20 kg scale", "deleted"],
-            ["Duplicates with two labels", f"{fu['B0_duplicate_label_conflict']:,}", "One copy says missed, the other OK",
-             "kept, label not used"],
-            ["Label missing", f"{fu['B1_label_missing']:,}", "No OK, empty or missed label", "kept, not in KPIs"],
-            ["Setting missing", f"{fu['B3_sensitivity_missing']:,}", "The sensor setting is empty", "kept, not in KPIs"],
-            ["Other wait time or delay", f"{fu['B4_trigger_config_nonstandard']:,}", "Non-standard trigger settings, "
-             "e.g. a 60 min wait", "kept, not in KPIs"],
-            ["Scale type or site unknown", f"{fu['B5_device_metadata_missing']:,}", "Not in the scale list, cannot "
-             "tell 6 kg from 20 kg", "kept, not in KPIs"],
-            ["Too short periods", f"{fu['B6_section_not_relevant']:,}", "Under 5 days or 20 weighings on one "
-             "setting (D ONE rule)", "kept, not in KPIs"],
-            ["Setting 3", f"{fu['B7_sensitivity_anomaly']:,}", "Four-week trial in April, studied apart", "studied apart"],
-            ["Rare settings", f"{fu['B8_sensitivity_low_support']:,}", "Used by fewer than 30 scales of a type",
-             "kept, not in KPIs"]]
-    table(s, LM, y - 0.05, CW, [2.8, 1.25, 5.2, 2.3], rows, size=12, row_h=0.4, align="lrll",
-          col_colors=[WHITE, MINT, TXT, SOFT])
-    card(s, LM, 5.95, CW, 0.75, accent=MINT, strong=True)
-    tb(s, LM + 0.25, 5.95, CW - 0.5, 0.75, f"**{N['rows_main'] / 1e6:.2f} M of {N['rows'] / 1e6:.2f} M rows "
-       f"({pc(N['share_main'])}) are used for the KPIs.** Only {N['deleted']:,} rows were deleted. The rest stay in the "
-       "data, because the next weighing needs them to compute its weight change.", size=13, color=SOFT, anchor="m")
-    footer(s, OWN + " · Report §3, Appendix A", d.n)
-    notes(s, f"""Here is what we did with the data, in one table.
-We deleted only rows that were clearly broken. Duplicate rows and five impossible weights.
-Everything else stays in the data, but some rows are not used for the KPIs. For example rows without a sensor setting, or scales we could not find in the scale list.
-In the end we work with {pc(N['share_main'])} of all rows, about 5.3 million weighings.""")
-
-    # ---- 6 KPI ----------------------------------------------------------------------------------
-    s = d.slide(alt=True)
     y = head(s, "FINDING 1 · THE KPI", "The current KPI looks best when the sensor barely reacts")
     pic(s, ch_kpi_compare(plt, N, R, 7.7, 3.7), LM - 0.15, y - 0.05, w=7.7)
     tb(s, LM, y + 3.75, 7.4, 0.6, "A typical 20 kg scale. On setting 1 the empty wake-ups almost disappear, but the "
@@ -1286,121 +1242,38 @@ In the end we work with {pc(N['share_main'])} of all rows, about 5.3 million wei
         tb(s, xr + 0.25, ty, 1.2, 0.5, v, size=24, family=HEAD, bold=True, color=MINT)
         tb(s, xr + 1.45, ty + 0.08, 2.0, 0.5, t, size=12.5, color=SOFT, line=1.1)
         ty += 0.85
-    tb(s, xr + 0.25, ty + 0.05, 3.1, 0.6, "Slow-moving bins are no longer punished.", size=12, color=TXT)
+    tb(s, xr + 0.25, ty + 0.05, 3.1, 0.6, "Bossard's target of 2 misses a week stays.", size=12, color=TXT)
     footer(s, OWN + " · typical scale per setting · Report §4.3, §4.4, §6.1", d.n)
     notes(s, """Bossard's KPI is a ratio. Empty wake-ups divided by all wake-ups.
 Look at a typical 20 kg scale. On the default setting it wakes up empty about thirteen times a week, and sees one or two real picks. So about ninety percent of its wake-ups are empty.
 On setting 1 the sensor barely reacts. Empty wake-ups almost disappear. But the real picks disappear too.
 Because both numbers fall together, the ratio stays high. It moves from about ninety to about seventy percent, still far from the target.
 So the ratio hides the real progress. It also punishes bins that are rarely used.
-We suggest to count what really costs money. Empty wake-ups per week, and the share of picks we miss. We call this KPI 2.0.""")
+We suggest to add counts that reflect the real cost. Empty wake-ups per week, and the share of picks we miss. Bossard's target of two misses a week stays. We call this KPI 2.0.""")
 
-    # ---- 7 coupling insight ---------------------------------------------------------------------
-    s = d.slide()
-    y = head(s, "FINDING 2 · KEY INSIGHT", "Over half of the empty wake-ups happen when someone picks nearby")
-    tb(s, LM, y - 0.12, 7, 0.3, "A REAL EXAMPLE FROM THE DATA", size=10.5, bold=True, color=MINT, spc=120)
-    pic(s, ch_episode(plt, N, R, 7.5, 3.0), LM - 0.1, y + 0.2, w=7.5)
-    tb(s, LM, y + 3.3, 7.2, 0.9, ["A worker picks from Bin A. Three bins on the same shelf wake up within 14 seconds "
-       "and find nothing.", "**What helps:** a damping pad under each scale, so the shaking of the shelf does not "
-       "reach its neighbours."], size=12.5, color=TXT, line=1.12, space_after=4)
-    xr = 8.7
-    card(s, xr, y - 0.05, 3.75, 1.95, accent=PERI, strong=True)
-    tb(s, xr + 0.25, y + 0.05, 3.3, 0.9, pc(c_both), size=50, family=HEAD, bold=True, color=PERI)
-    tb(s, xr + 0.25, y + 0.95, 3.3, 0.9, "of empty wake-ups come within 14 seconds of a real pick in the same "
-       "factory", size=12.5, color=SOFT, line=1.12)
-    tb(s, xr, y + 2.05, 3.75, 0.3, "HOW OFTEN A PICK WAKES A NEIGHBOUR", size=10, bold=True, color=MINT, spc=100)
-    pic(s, ch_neighbour(plt, N, R, 3.85, 2.05), xr - 0.1, y + 2.3, w=3.85)
-    footer(s, OWN + f" · above the chance level · looping scales left out ({pc(c_both_all)} with them) · Report §4.5, "
-           "Appendix C", d.n)
-    nb = R["neigh"].set_index(["scale_type", "sensitivity"]).woken_per_1000_pairs / 10
-    notes(s, f"""This is our key finding.
-Here is one real moment from the data. A worker takes parts from Bin A. In the same seconds, three bins on the same shelf wake up. They weigh and find nothing.
-This is not a rare story. More than half of all empty wake-ups come within 14 seconds of a real pick in the same factory. That is after we remove what would happen by chance.
-In this example the neighbours woke up a few seconds before the pick was weighed. In the data it is half before and half after, so the timing has no direction.
-So the sensor does not only feel its own bin. It feels the whole shelf.
-The small chart shows how often a pick wakes up a neighbour, by the neighbour's setting. On setting 8 and 7 it is about {nb.loc[('20kg', 8.0)]:.0f} percent for 20 kg scales. Only on setting 5 or lower it drops clearly.
-So the setting alone does not fix this part. The direct fix is mechanical. A damping pad under each scale, so the shaking of the shelf does not reach the neighbours.""")
-
-    # ---- 8 proof --------------------------------------------------------------------------------
+    # ---- 6 setting ------------------------------------------------------------------------------
     s = d.slide(alt=True)
-    y = head(s, "FINDING 2 · PROOF", "It is not chance. Four checks agree.")
-    pic(s, ch_correlogram(plt, N, R, 6.0, 3.3), LM - 0.15, y - 0.05, w=6.0)
-    pic(s, ch_placebo(plt, N, R, 5.4, 3.3), 7.1, y - 0.05, w=5.4)
-    checks = [("Peak at zero", "At the moment of an empty wake-up, picks at the other bins are about 8 times more "
-               "frequent than normal."),
-              ("Not just a busy hour", f"One minute later, in the same hour, only {pc(coup.loc['both', 'p_chance'])} "
-               f"have a pick nearby, against {pc(coup.loc['both', 'p_near'])}."),
-              ("Not the clock", "Picks in another factory at the same second show no link. So it is no clock or cloud error."),
-              ("Almost every scale", f"For {pc(R['per_scale'].share_scales_above_chance.min(), 1)} of the scales the "
-               "link is above chance. Busier factories show more of it.")]
-    cw4 = (CW - 3 * 0.2) / 4
-    ty = y + 3.45
-    for i, (t, body) in enumerate(checks):
-        x = LM + i * (cw4 + 0.2)
-        card(s, x, ty, cw4, 1.5)
-        badge(s, x + 0.15, ty + 0.15, 0.28, "✓", size=11)
-        tb(s, x + 0.52, ty + 0.15, cw4 - 0.62, 0.3, t, size=13, family=HEAD, bold=True, color=WHITE)
-        tb(s, x + 0.15, ty + 0.55, cw4 - 0.3, 0.8, body, size=11.5, color=TXT, line=1.1)
-    footer(s, OWN + " · event coincidence analysis (Donges et al., 2016) · Report §4.5, Appendix C", d.n)
-    ps = R["per_scale"]
-    notes(s, f"""A claim like this needs proof. We checked it in four ways.
-First, the left chart. Around an empty wake-up, picks at the other bins jump to about eight times the normal level. Exactly at zero seconds.
-Second, we look one minute later, in the same busy hour. The link is gone. So it is not just a busy time of day.
-Third, the right chart. We take picks from a different factory at the same second. There is no link. This rules out shift patterns, and it also rules out a timing error in the cloud.
-Fourth, we checked every scale on its own. For almost all of them the link is above chance. How strong it is differs. For the middle half of the scales, between {pc(ps.q25.min())} and {pc(ps.q75.max())} of their empty wake-ups are linked. And the busier the factory, the stronger the link.
-What the data cannot tell us is exactly how the shaking travels. A short test on site with a vibration sensor would show that.""")
-
-    # ---- 9 loops --------------------------------------------------------------------------------
-    s = d.slide()
-    y = head(s, "FINDING 3 · LOOPING SCALES", f"{N['loop_share_scales'] * 100:.1f}% of the scales wake themselves "
-             f"up and cause {loop_share * 100:.0f}% of all weighings")
-    pic(s, ch_barcode(plt, N, R, 6.0, 2.6), LM - 0.1, y - 0.05, w=6.0)
-    tb(s, LM, y + 2.65, 5.8, 0.9, "About every 90 seconds, day and night. That is the shortest pause the scale "
-       "allows between two wake-ups (60 s) plus the time it waits before it weighs (30 s).", size=12.5, color=TXT,
-       line=1.12)
-    pic(s, ch_loop_evidence(plt, N, R, 5.45, 2.75), 7.05, y - 0.05, w=5.45)
-    tb(s, 7.05, y + 2.75, 5.4, 0.9, f"The same scales act normally on another setting ({int(lo3.of_which_normal_there)} "
-       f"of {int(lo3.scales_seen_on_other_level)}). This points to the firmware, not to broken hardware.",
-       size=12.5, color=TXT, line=1.12)
-    card(s, LM, 5.9, CW, 0.8, accent=MINT, strong=True)
-    tb(s, LM + 0.25, 5.9, CW - 0.5, 0.8, f"**We took these scales out and repeated every analysis.** The results "
-       f"hold. The link to picks nearby gets even clearer ({pc(c_both_all)} → {pc(c_both)}).", size=13.5,
-       color=SOFT, anchor="m")
-    footer(s, OWN + " · looping = over half of the wake-ups within 2 min and over 20 a day · Report §5.3, Appendix C",
-           d.n)
-    lp = R["lev_prof"]
-    notes(s, f"""Our third finding was the biggest surprise.
-A small group of scales wakes itself up again and again. The top line on the left is one of them. Every line is one wake-up. Below it is a busy but normal scale on the same kind of day.
-The looping scale wakes up about every 90 seconds, day and night. Ninety seconds is the shortest pause the scale allows, sixty seconds, plus the thirty seconds it waits before it weighs. So the scale triggers itself as soon as it is allowed to.
-The chart on the right compares these scales with normal ones. They wake up at night and at weekends. Half of their wake-ups come about 90 seconds after the last one. And almost none of them come when someone picks nearby. So unlike finding 2, these wake-ups are not caused by people.
-Only 1.5 percent of the scales do this. But they cause 27 percent of all weighings. Most of them during a short test of setting 3 in April.
-The same scales behave normally on another setting. So the hardware is fine. This looks like a firmware problem.
-We removed these scales and repeated all our analyses. The results did not change.""")
-
-    # ---- 10 setting -----------------------------------------------------------------------------
-    s = d.slide(alt=True)
-    y = head(s, "FINDING 4 · THE SETTING", "One step down halves the empty wake-ups for almost no extra missed picks")
+    y = head(s, "FINDING 2 · THE SETTING", "One step down halves the empty wake-ups for almost no extra missed picks")
     pic(s, ch_knob_abs(plt, N, R, 7.8, 3.7), LM - 0.15, y - 0.05, w=7.8)
     xr = 8.95
-    m_after = {st: (R["bk"].loc[st, "miss_rate_median"] * 100 + rk.loc[(st, 7.0), "missed_pp"]) for st in SCALES}
-    ty = big(s, xr, y + 0.1, 3.5, f"{pct0(-e7['20kg'] * 100)} / {pct0(-e7['6kg'] * 100)}", "empty wake-ups when the "
-             "setting goes from 8 to 7 (20 kg / 6 kg)", size=34, color=MINT) + 0.35
-    ty = big(s, xr, ty, 3.5, f"{m_after['20kg']:.0f}% / {m_after['6kg']:.0f}%", "of picks missed on 7, still under "
+    ty = big(s, xr, y + 0.1, 3.5, e7s, "empty wake-ups when the setting goes from 8 to 7 (20 kg / 6 kg)", size=34,
+             color=MINT) + 0.35
+    ty = big(s, xr, ty, 3.5, f"{miss7['20kg']:.0f}% / {miss7['6kg']:.0f}%", "of picks missed on 7, still under "
              "the 10% target", size=34, color=PERI) + 0.35
     tb(s, xr, ty, 3.5, 0.8, "Below setting 6, the scale starts to miss real picks.", size=14, family=HEAD,
        bold=True, color=WHITE, line=1.1)
-    footer(s, OWN + " · same scales before and after their change, minus the trend of unchanged scales · Report §5.1",
-           d.n)
+    footer(s, OWN + f" · {int(rk.loc[('20kg', 7.0), 'switchers']):,} + {int(rk.loc[('6kg', 7.0), 'switchers']):,} "
+           "scales that went from 8 to 7, before and after, minus the trend of unchanged scales · Report §5.1", d.n)
     notes(s, f"""Now, what does the setting really do?
-In April Bossard changed the setting of thousands of scales. We compare each scale with itself, before and after.
+In April Bossard changed the setting of thousands of scales. We compare each scale with itself, before and after, and subtract what happened to scales that stayed on 8.
 The first step, from 8 to 7, removes about half of the empty wake-ups. For a typical 20 kg scale that is from about thirteen to about six a week.
-The price is small. Missed picks go from about {R['bk'].loc['20kg', 'miss_rate_median'] * 100:.0f} to about {m_after['20kg']:.0f} percent on 20 kg scales, and from about {R['bk'].loc['6kg', 'miss_rate_median'] * 100:.0f} to about {m_after['6kg']:.0f} percent on 6 kg scales. Both stay under the 10 percent line.
+The price is small. Missed picks go from about {miss8['20kg']:.0f} to about {miss7['20kg']:.0f} percent on 20 kg scales, and from about {miss8['6kg']:.0f} to about {miss7['6kg']:.0f} percent on 6 kg scales. Both stay under the 10 percent line.
 Below setting 6 the scale starts to miss real picks, and 6 kg scales cross the line first.
-So the first step is cheap. The deep steps are expensive.""")
+So the first step is cheap. The deep steps are expensive. This is the most important measured result of our work.""")
 
-    # ---- 11 pick size ---------------------------------------------------------------------------
+    # ---- 7 pick size ----------------------------------------------------------------------------
     s = d.slide()
-    y = head(s, "FINDING 4 · PICK SIZE", "Small picks are hard to see. They need a high setting or a 6\u00a0kg scale.")
+    y = head(s, "FINDING 2 · PICK SIZE", "Small picks are hard to see. They need a high setting or a 6 kg scale.")
     pic(s, ch_pick_heat(plt, N, R, 8.4, 4.1), LM - 0.15, y - 0.1, w=8.4)
     tb(s, 8.9, y, 3.6, 4.0, ["• Each cell is the share of picks the scale caught (%).",
                              f"• A 20 kg scale cannot see picks under about {N['floor_g']['20kg']:.0f} g at any setting.",
@@ -1412,32 +1285,85 @@ So the first step is cheap. The deep steps are expensive.""")
 Each cell shows the share of picks the scale caught, by setting and by the size of the pick.
 A 20 kg scale cannot see a pick of a few grams at any setting. Below about {N['floor_g']['20kg']:.0f} grams it is blind. A 6 kg scale sees down to about {N['floor_g']['6kg']:.0f} grams.
 Settings 6 to 8 catch almost every pick. From setting 5 down the scale misses more and more, whatever the size.
-So parts that are picked in very small amounts belong on 6 kg scales. And this is why our rule starts on setting 7.""")
+So parts that are picked in very small amounts belong on 6 kg scales.""")
 
-    # ---- 12 factories ---------------------------------------------------------------------------
+    # ---- 8 factories ----------------------------------------------------------------------------
     s = d.slide(alt=True)
-    y = head(s, "FINDING 5 · NO ONE SIZE FITS ALL", "The same setting works differently in every factory")
+    y = head(s, "FINDING 3 · NO ONE SIZE FITS ALL", "The same setting works differently in every factory")
     pic(s, ch_site_dots(plt, N, R, 7.4, 3.6), LM - 0.15, y - 0.05, w=7.4)
     pic(s, ch_drivers_v(plt, N, R, 4.6, 3.6), 7.9, y - 0.05, w=4.6)
     card(s, LM, 5.9, CW, 0.8, accent=MINT, strong=True)
     tb(s, LM + 0.25, 5.9, CW - 0.5, 0.8, "**What decides the best setting only shows once a scale is running.** "
        "So each scale should learn its own setting.", size=13.5, color=SOFT, anchor="m")
     sp_ = N["spread"].set_index(["scale_type", "parameter"]).spread
-    footer(s, OWN + " · factories with at least 20 scales, default setting · Report §4.7, §4.8", d.n)
+    footer(s, OWN + " · factories with at least 20 scales, default setting · gaps in percentage points · Report §4.7, §4.8",
+           d.n)
     notes(s, f"""Can we not just pick one good setting for everyone?
 No. On the left, every dot is a factory, all on the same setting. Some factories are close to the target, others are far above it.
-On the right is what makes the biggest difference. For each factor we compare the best and the worst group. Between the best and the worst factories, the share of empty wake-ups differs by about {sp_.loc[('20kg', 'Site (location)')] * 100:.0f} points on 20 kg scales. How often a bin is used matters about as much.
+The numbers on the right are percentage points. Take the factory. In the best factories about 63 percent of the wake-ups are empty, in the worst about 97 percent. The gap is about {sp_.loc[('20kg', 'Site (location)')] * 100:.0f} points. How often a bin is used matters about as much.
 Box type and item weight matter much less. But those are the only things Bossard knows before a scale is installed.
-We also tested a table by pick size. It chose the same setting for almost every scale.
-So the best setting cannot be looked up. Each scale has to learn it.""")
+So the best setting cannot be looked up in the master data. Each scale has to learn it.""")
 
-    # ---- 13 solution ----------------------------------------------------------------------------
+    # ---- 9 loops --------------------------------------------------------------------------------
+    s = d.slide()
+    y = head(s, "FINDING 4 · LOOPING SCALES", f"{N['loop_share_scales'] * 100:.1f}% of the scales wake themselves "
+             f"up and cause {loop_share * 100:.0f}% of all weighings")
+    pic(s, ch_barcode(plt, N, R, 6.0, 2.6), LM - 0.1, y - 0.05, w=6.0)
+    tb(s, LM, y + 2.65, 5.8, 0.9, "About every 90 seconds, all day long. That is the shortest pause the scale "
+       "allows between two wake-ups (60 s) plus the time it waits before it weighs (30 s).", size=12.5, color=TXT,
+       line=1.12)
+    pic(s, ch_loop_evidence(plt, N, R, 5.45, 1.9), 7.05, y - 0.05, w=5.45)
+    tb(s, 7.05, y + 1.95, 5.4, 1.6, [f"The same scales act normally on another setting ({int(lo3.of_which_normal_there)} "
+       f"of {int(lo3.scales_seen_on_other_level)}). This points to the firmware, not to broken hardware.",
+       "The check uses only the time between wake-ups, so time zones do not matter."],
+       size=12.5, color=TXT, line=1.12, space_after=5)
+    card(s, LM, 5.9, CW, 0.8, accent=MINT, strong=True)
+    tb(s, LM + 0.25, 5.9, CW - 0.5, 0.8, "**We took these scales out and repeated every analysis.** The results "
+       "hold.", size=13.5, color=SOFT, anchor="m")
+    footer(s, OWN + " · looping = over half of the wake-ups within 2 min and over 20 a day · Report §5.3, Appendix C",
+           d.n)
+    notes(s, """Our next finding was the biggest surprise.
+A small group of scales wakes itself up again and again. The top line on the left is one of them. Every line is one wake-up. Below it is a busy but normal scale.
+The looping scale wakes up about every 90 seconds, all day long. Ninety seconds is the shortest pause the scale allows, sixty seconds, plus the thirty seconds it waits before it weighs. So the scale triggers itself as soon as it is allowed to.
+On the right we compare these scales with normal ones. Half of their wake-ups come about 90 seconds after the last one. And almost none of them come when someone picks nearby. So these wake-ups are not caused by people.
+Only 1.5 percent of the scales do this. But they cause 27 percent of all weighings. Most of them during a short test of setting 3 in April.
+The same scales behave normally on another setting. So the hardware is fine. This looks like a firmware problem.
+We removed these scales and repeated all our analyses. The results did not change.""")
+
+    # ---- 10 nearby signal -----------------------------------------------------------------------
+    s = d.slide(alt=True)
+    y = head(s, "A SIGNAL TO CHECK · PICKS NEARBY", "Many empty wake-ups come within seconds of a pick nearby")
+    tb(s, LM, y - 0.12, 7, 0.3, "A REAL EXAMPLE FROM THE DATA", size=10.5, bold=True, color=MINT, spc=120)
+    pic(s, ch_episode(plt, N, R, 7.5, 3.0), LM - 0.1, y + 0.2, w=7.5)
+    tb(s, LM, y + 3.3, 7.2, 0.6, "A worker picks from Bin A. Three other bins at the same site wake up within 14 "
+       "seconds and find nothing.", size=12.5, color=TXT, line=1.12)
+    xr = 8.7
+    card(s, xr, y - 0.05, 3.75, 1.75, accent=PERI, strong=True)
+    tb(s, xr + 0.25, y + 0.02, 3.3, 0.8, pc(c_both), size=44, family=HEAD, bold=True, color=PERI)
+    tb(s, xr + 0.25, y + 0.85, 3.3, 0.8, "of empty wake-ups come within 14 s of a pick at the same site, above "
+       "chance", size=12, color=SOFT, line=1.1)
+    card(s, xr, y + 1.85, 3.75, 2.15)
+    tb(s, xr + 0.22, y + 1.97, 3.3, 0.3, "WHAT IS STILL OPEN", size=10, bold=True, color=AMBER, spc=100)
+    tb(s, xr + 0.22, y + 2.3, 3.35, 1.7, ["• Which bins share a shelf. The data only knows the site.",
+                                          "• How the shaking travels. A short vibration test on site would show it.",
+                                          "• Then: a damping pad could be tested."], size=11.5, color=TXT,
+       space_after=4, bullet_color=AMBER)
+    footer(s, OWN + f" · looping scales left out ({pc(c_both_all)} with them) · the checks are in the backup · "
+           "Report §4.5, Appendix C", d.n)
+    notes(s, """We also found a signal that we did not expect.
+Here is one real moment from the data. A worker takes parts from Bin A. In the same seconds, three other bins at the same site wake up. They weigh and find nothing.
+Across the data, more than half of the empty wake-ups come within 14 seconds of a real pick at the same site. That is after we remove what would happen by chance.
+We see this as a signal, not as a proven result. The data only knows the site, not which bins share a shelf.
+To act on it, Bossard would need the rack positions and a short vibration test on site. Then a damping pad under the scales could be tested.
+Our checks of this signal are in the backup.""")
+
+    # ---- 11 recommendation ----------------------------------------------------------------------
     s = d.slide()
     y = head(s, "OUR RECOMMENDATION", "Flag, tune, watch")
-    cols = [("F", "Flag", "Find looping scales every day and send them to service.", f"{N['loop_scales']} scales",
-             CORAL),
+    cols = [("F", "Flag", "Find looping scales every day and send them to service.",
+             f"{N['loop_scales']} scales, {loop_share * 100:.0f}% of weighings", CORAL),
             ("T", "Tune", "Start every scale on 7. Every two weeks it moves one step, or stays.",
-             f"{pct0(-save20)} / {pct0(-save6)} weighings", MINT),
+             f"8 → 7: {e7s} empty", MINT),
             ("W", "Watch", "Track KPI 2.0. Keep the daily check. Watch the few scales that miss most.",
              "misses stay visible", PERI)]
     cw3 = (CW - 2 * 0.3) / 3
@@ -1458,14 +1384,14 @@ So the best setting cannot be looked up. Each scale has to learn it.""")
         badge(s, x, ty, 0.3, "", fill=MINT if i == 0 else PERI)
         tb(s, x, ty + 0.45, pw - 0.3, 0.3, t, size=11, bold=True, color=MINT, spc=120)
         tb(s, x, ty + 0.75, pw - 0.3, 0.6, body, size=13, color=WHITE, line=1.1)
-    footer(s, OWN + " · simulation over 16 weeks · Report §6.3 and §6.4", d.n)
-    notes(s, """Our recommendation has three steps. None of them needs new hardware. Everything runs on data the cloud already has.
-Flag. Find the looping scales every day and send them to service.
-Tune. Every scale starts on setting 7. Every two weeks it moves one step, or it stays.
+    footer(s, OWN + " · effects measured on real scales · Report §5 and §6", d.n)
+    notes(s, f"""Our recommendation has three steps. None of them needs new hardware. Everything runs on data the cloud already has.
+Flag. Find the looping scales every day and send them to service. They cause {loop_share * 100:.0f} percent of all weighings.
+Tune. Every scale starts on setting 7. We measured that this step alone removes about half of the empty wake-ups. Every two weeks the scale can move one more step, or stay.
 Watch. Track the new KPIs. Keep the daily safety check. Look closer at the few scales that miss most picks.
 We suggest to start the first part now, and to test the rule in about ten factories for eight weeks.""")
 
-    # ---- 14 flag --------------------------------------------------------------------------------
+    # ---- 12 flag --------------------------------------------------------------------------------
     s = d.slide(alt=True)
     y = head(s, "STEP 1 · FLAG", "A simple daily check finds the looping scales")
     card(s, LM, y - 0.05, 5.6, 2.3, accent=CORAL, strong=True)
@@ -1487,18 +1413,16 @@ We suggest to start the first part now, and to test the rule in about ten factor
     tb(s, 6.6, y + 3.8, 5.8, 0.5, "Looping and normal scales are far apart. Other thresholds give almost the same "
        "list.", size=12.5, color=TXT, line=1.12)
     footer(s, OWN + " · each dot = scales with similar values · Report §5.3, Appendix C", d.n)
-    notes(s, f"""How do we find a looping scale? With two simple numbers.
+    notes(s, """How do we find a looping scale? With two simple numbers.
 How often does it wake up again within two minutes? And how many times a day does it wake up?
 If more than half of the wake-ups come that fast, and it wakes up more than 20 times a day, it is looping.
-The check uses all wake-ups of the scale. We do not need to separate the ones caused by picking nearby, because those never come every 90 seconds all day long.
 The chart shows why this is easy. Normal scales sit bottom left. Looping scales sit top right. Even the busiest normal scales stay far from the line.
-Then three steps. Set the scale back to 7 from the cloud. If it still loops after two days, send service. And give the list to the firmware team.
-We deliver the check as a short script, together with today's list.""")
+Then three steps. Set the scale back to 7 from the cloud. If it still loops after two days, send service. And give the list to the firmware team.""")
 
-    # ---- 15 tune --------------------------------------------------------------------------------
+    # ---- 13 tune --------------------------------------------------------------------------------
     s = d.slide()
     y = head(s, "STEP 2 · TUNE", "Every two weeks, each scale moves one step, or stays")
-    rules = [("Missed more than 10% of its picks?", "one step MORE sensitive", AMBER),
+    rules = [("Missed more than 10% of its picks, or more than 2 a week?", "one step MORE sensitive", AMBER),
              ("More than 7 empty wake-ups a week, and almost no misses?", "one step LESS sensitive", MINT),
              ("Neither?", "stay", PERI)]
     ty = y - 0.05
@@ -1511,25 +1435,24 @@ We deliver the check as a short script, together with today's list.""")
         tb(s, LM + 4.0, ty + 0.1, 1.5, 0.75, a, size=12.5, family=HEAD, bold=True, color=col, line=1.05,
            anchor="m")
         ty += 1.1
-    tb(s, LM, ty + 0.05, 5.6, 0.4, "Every scale starts on setting 7. Setting 3 is never used.", size=12.5, color=TXT)
+    tb(s, LM, ty + 0.05, 5.6, 0.7, ["Every scale starts on setting 7. Setting 3 is never used.",
+                                    "The thresholds are the KPI 2.0 targets."], size=12.5, color=TXT, space_after=3)
     xr = 6.85
     tb(s, xr, y - 0.05, 5.6, 0.3, "EXAMPLE · A BUSY 20 KG SCALE", size=10.5, bold=True, color=MINT, spc=120)
     pic(s, ch_tune_example(plt, N, R, 5.7, 3.3), xr - 0.1, y + 0.3, w=5.7)
-    tb(s, xr, y + 3.65, 5.5, 0.6, "It settles on setting 6 with about two thirds fewer empty wake-ups.",
-       size=13, color=TXT, line=1.12)
-    footer(s, OWN + " · rule simulated on every scale for 16 weeks; the example is illustrative · Report §6.2 to §6.4",
-           d.n)
+    tb(s, xr, y + 3.65, 5.5, 0.6, "Each move is one step. The measured effect of each step is on the setting slide.",
+       size=12.5, color=TXT, line=1.12)
+    footer(s, "Illustrative example · the rule is to be tested in the pilot · Report §6.2", d.n)
     notes(s, """This is the heart of the solution, and it is simple.
 Every two weeks the cloud looks at each scale.
-Did it miss more than 10 percent of its picks? Then it becomes one step more sensitive.
+Did it miss more than 10 percent of its picks, or more than two a week? Then it becomes one step more sensitive.
 Did it wake up for nothing more than seven times a week, with almost no misses? Then it becomes one step less sensitive.
 Otherwise it stays where it is.
-Seven empty wake-ups a week is about one a day. It is an absolute number on purpose, because every weighing costs the same, no matter how busy the bin is.
+The thresholds are simply the KPI 2.0 targets.
 On the right is an example. A busy scale starts on 7 and steps down twice. On 5 it misses a pick, so it goes back up to 6. There it stays.
-It ends with about two thirds fewer empty wake-ups.
-On average a scale changes its setting about once a month.""")
+We do not claim an exact saving for the rule. The first step from 8 to 7 is measured. The rest should be tested in a pilot.""")
 
-    # ---- 16 watch -------------------------------------------------------------------------------
+    # ---- 14 watch -------------------------------------------------------------------------------
     s = d.slide(alt=True)
     y = head(s, "STEP 3 · WATCH", "Missed picks are still found, usually within two days")
     tb(s, LM, y - 0.12, 6, 0.3, "WHEN IS A MISSED PICK FOUND?", size=10.5, bold=True, color=MINT, spc=120)
@@ -1544,92 +1467,23 @@ On average a scale changes its setting about once a month.""")
     ty = 5.95
     x = LM
     for t, col in [("Keep the daily check", MINT), ("Extra check for the worst 10%", MINT),
-                   ("Alarm if a scale is silent for 48 h", AMBER), ("No extra night check for all", CORAL)]:
+                   ("Alarm if a scale is silent for 48 h", AMBER)]:
         x = pill(s, x, ty, t, color=col, size=12.5, h=0.4) + 0.15
     footer(s, OWN + " · time since the last weighing of every missed pick · Report §3, §6.4", d.n)
     notes(s, """A fair question is this. If the sensor sleeps more, does the stock stay wrong for days?
 The data says no. A missed pick is found by the next weighing of that bin. That can be the next wake-up, or the daily check. Bossard already weighs every scale that was quiet for 24 hours. Most missed picks are found within one or two days.
 A few take longer. We suggest an alarm for any scale that has been silent for two days.
 On the right you see that misses are concentrated. The worst ten percent of the scales cause about half of all misses. Those scales get an extra check.
-So every week the dashboard shows two numbers per scale. Empty wake-ups and missed picks. That is KPI 2.0 in daily use.
-We do not recommend an extra night check for all scales. It would add about seven weighings per scale and week, a third of what our rule saves.""")
+So every week the dashboard shows two numbers per scale. Empty wake-ups and missed picks. That is KPI 2.0 in daily use.""")
 
-    # ---- 17 how we tested the rule ---------------------------------------------------------------
-    s = d.slide()
-    y = head(s, "HOW WE TESTED THE RULE", "We replayed 16 weeks on every real scale")
-    tm7, ok7 = np.exp(ke.loc[("20kg", 7.0), "beta_tm"]), np.exp(ke.loc[("20kg", 7.0), "beta_aok"])
-    steps = [("1", "Start from real data", "Each scale's own counts per week on setting 8: empty wake-ups, picks, "
-              "missed picks."),
-             ("2", "Apply the measured effect", f"From the April change. Setting 7 keeps about {tm7 * 100:.0f}% of the "
-              f"empty wake-ups and {ok7 * 100:.0f}% of the picks (20 kg)."),
-             ("3", "Add normal ups and downs", "Real weeks vary. We draw the counts at random around each scale's "
-              "average (Poisson)."),
-             ("4", "Run the rule", "8 rounds of 2 weeks. After each round the rule moves the scale up, down, or "
-              "keeps it."),
-             ("5", "Repeat and compare", "5 repeats. We count weighings and missed picks and compare with today.")]
-    cw5, g5 = (CW - 4 * 0.18) / 5, 0.18
-    for i, (num, t, body) in enumerate(steps):
-        x = LM + i * (cw5 + g5)
-        card(s, x, y, cw5, 2.35, accent=MINT if i < 4 else PERI)
-        badge(s, x + 0.17, y + 0.17, 0.34, num, fill=MINT if i < 4 else PERI)
-        tb(s, x + 0.17, y + 0.62, cw5 - 0.3, 0.6, t, size=13.5, family=HEAD, bold=True, color=WHITE, line=1.05)
-        tb(s, x + 0.17, y + 1.2, cw5 - 0.3, 1.15, body, size=11.5, color=TXT, line=1.1)
-    ex_tm, ex_ok = 23, 3
-    card(s, LM, y + 2.6, 7.4, 1.6)
-    tb(s, LM + 0.25, y + 2.75, 7.0, 0.3, "EXAMPLE · ONE ROUND FOR ONE SCALE", size=10.5, bold=True, color=MINT, spc=100)
-    tb(s, LM + 0.25, y + 3.08, 7.0, 1.1, [f"On setting 8 it has {ex_tm} empty wake-ups and {ex_ok} picks a week. On 7 we "
-       f"expect about {ex_tm * tm7:.0f} and {ex_ok * ok7:.0f}. Over two weeks: {2 * ex_tm * tm7:.0f} and {2 * ex_ok * ok7:.0f}.",
-       "The random draw gives for example 17 empty, 4 picks, no miss. 17 is more than 14, so the rule steps down."],
-       size=12.5, color=SOFT, line=1.12, space_after=4)
-    card(s, LM + 7.6, y + 2.6, CW - 7.6, 1.6, accent=PERI)
-    tb(s, LM + 7.85, y + 2.75, CW - 8.1, 0.3, "WHAT IS POISSON?", size=10.5, bold=True, color=PERI, spc=100)
-    tb(s, LM + 7.85, y + 3.08, CW - 8.1, 1.1, "A standard way to draw random counts around an average. If the average "
-       "is 4 picks, one fortnight may show 2, another 6.", size=12.5, color=SOFT, line=1.12)
-    footer(s, OWN + " · no machine learning, no invented scales · fixed random seed · Report §6.3, Appendix A", d.n)
-    notes(s, f"""This slide shows how we tested the rule before recommending it.
-There is no machine learning here, and we did not invent any scales. We start from every real scale and its real counts per week on the default setting.
-From the April change we know what each setting does. For example, setting 7 keeps about {tm7 * 100:.0f} percent of the empty wake-ups and about {ok7 * 100:.0f} percent of the picks.
-Real weeks are not all the same. So we let the counts go up and down at random around each scale's average. This is called a Poisson draw. If a scale sees four picks on average, one fortnight it may see two and another six.
-Then we run the rule for eight rounds of two weeks, repeat everything five times, and compare with today.
-Here is one round. A scale with twenty three empty wake-ups a week on setting 8 would have about {2 * ex_tm * tm7:.0f} in two weeks on setting 7. The random draw gives seventeen, with no miss. That is more than fourteen, so the rule steps down.""")
-
-    # ---- 18 result ------------------------------------------------------------------------------
-    s = d.slide(alt=True)
-    y = head(s, "RESULT", "More than half fewer weighings, and misses stay under control")
-    pic(s, ch_result(plt, N, R, 7.6, 3.4), LM - 0.15, y - 0.05, w=7.6)
-    tb(s, LM, y + 3.4, 7.4, 1.0, [
-        f"**One setting for all:** the single setting that is best for Bossard's KPI (20 kg: {N['one_setting']['20kg']:.0f}, "
-        f"6 kg: {N['one_setting']['6kg']:.0f}).",
-        "**Follow the KPI:** a daily rule that steps down whenever the share of empty wake-ups is above 50%.",
-        "**Our rule:** start on 7, review every two weeks."], size=11, color=TXT, line=1.08, space_after=3)
-    xr = 8.75
-    ty = big(s, xr, y - 0.05, 3.7, f"{pct0(-save20)} / {pct0(-save6)}", "weighings. That is less load on the network, "
-             "the cloud and ARIMS.", size=34, color=MINT) + 0.25
-    ty = big(s, xr, ty, 3.7, f"{pct0(-empty_cut['20kg'] * 100)} / {pct0(-empty_cut['6kg'] * 100)}", "empty wake-ups "
-             "for the typical scale", size=30, color=MINT) + 0.25
-    ty = big(s, xr, ty, 3.7, f"≈ {fleet / 1e6:.1f} M", f"fewer weighings per week on {N['installed']:,} scales",
-             size=30, color=PERI) + 0.25
-    tb(s, xr, ty, 3.7, 0.9, f"Picks missed: {pc(miss20)} / {pc(miss6)} (today {pc(p0['20kg'].median_miss_rate)} / "
-       f"{pc(p0['6kg'].median_miss_rate)}). Battery life +{p7['20kg'].battery_life_change_pct:.0f}% / "
-       f"+{p7['6kg'].battery_life_change_pct:.0f}% (backup).", size=11.5, color=TXT, line=1.12)
-    footer(s, OWN + " · 20 kg / 6 kg · looping scales left out · the fleet number is an estimate, not a forecast · "
-           "Report §6.3", d.n)
-    notes(s, f"""We simulated every option on every scale.
-One setting for all is the single setting that looks best on Bossard's KPI. It saves a lot, but the typical scale then misses close to half of its picks. Following the KPI every day ends in the same place.
-Our rule saves {save20:.0f} and {save6:.0f} percent of the weighings. That is less load on the network, the cloud and ARIMS. The typical scale has about {empty_cut['20kg'] * 100:.0f} and {empty_cut['6kg'] * 100:.0f} percent fewer empty wake-ups.
-On the whole fleet that is about {fleet / 1e6:.0f} million fewer weighings every week. That is an estimate, not a promise.
-The typical scale misses around 11 to 12 percent of its picks, and the daily check finds them. That is just above the 10 percent target.
-We also tested a stricter version for the pilot. A scale only steps down after it has seen at least five picks. Then misses fall to about {v5['20kg'].median_miss_rate * 100:.0f} and {v5['6kg'].median_miss_rate * 100:.0f} percent, and the rule still saves about {-v5['20kg'].weighings_change_pct:.0f} and {-v5['6kg'].weighings_change_pct:.0f} percent.
-Battery life improves less, about {p7['20kg'].battery_life_change_pct:.0f} percent, because a sleeping scale still uses most of the energy. The calculation is in the backup.""")
-
-    # ---- 19 next steps --------------------------------------------------------------------------
+    # ---- 15 next steps --------------------------------------------------------------------------
     s = d.slide()
     y = head(s, "NEXT STEPS", "Start the safe steps now. Let a pilot decide the rest.")
     phases = [("NOW", MINT, ["Run the daily loop check", "Remove setting 3 from the menu", "Default setting 8 → 7",
                              "Report KPI 2.0 for every scale"]),
               ("PILOT · 8 WEEKS", MINT, ["Rule in about 10 factories", "Compare with similar factories without it",
-                                         "Test the stricter version: step down only after 5 picks"]),
-              ("IN PARALLEL", PERI, ["Damping pads in the 10 most affected factories", "Firmware fix for the loops",
+                                         "Measure weighings and missed picks"]),
+              ("IN PARALLEL", PERI, ["Check the picks-nearby signal on site", "Firmware fix for the loops",
                                      "Confirm how the daily check works"])]
     pw = (CW - 2 * 0.25 - 2.9 - 0.25) / 3
     for i, (t, col, bullets) in enumerate(phases):
@@ -1642,8 +1496,9 @@ Battery life improves less, about {p7['20kg'].battery_life_change_pct:.0f} perce
     card(s, xr, y, 2.9, 3.3)
     tb(s, xr + 0.2, y + 0.2, 2.5, 0.3, "LIMITS", size=11, bold=True, color=CORAL, spc=120)
     tb(s, xr + 0.2, y + 0.6, 2.55, 2.6, ["• Only one season of data", "• The April change was not random",
-                                         "• Some missed picks are never seen", "• No shelf positions in the data"],
-       size=12, color=TXT, space_after=6, bullet_color=CORAL)
+                                         "• Some missed picks are never seen", "• Time stamps in UTC, no local time",
+                                         "• No shelf positions in the data"],
+       size=12, color=TXT, space_after=5, bullet_color=CORAL)
     card(s, LM, y + 3.6, CW, 0.85, accent=MINT, strong=True)
     tb(s, LM + 0.25, y + 3.6, CW - 0.5, 0.85, "**Our advice for today:** start the loop check and the new default 7 "
        "now. Both are low risk and measured. Let the pilot decide the details of the rule.", size=14, color=SOFT,
@@ -1651,11 +1506,11 @@ Battery life improves less, about {p7['20kg'].battery_life_change_pct:.0f} perce
     footer(s, OWN + " · Report §7 and §8", d.n)
     notes(s, """What should Bossard do on Monday?
 Two things are safe and can start now. The daily loop check, and the new default setting of 7. We measured both on real scales.
-The rule itself goes into an eight-week pilot in about ten factories. We compare them with similar factories that keep the old setting. The pilot also tests the stricter version, where a scale only steps down after it has seen enough picks.
-In parallel, damping pads in the factories with the most empty wake-ups, and a firmware fix for the loops.
-Our limits are simple. We have one season of data, and the April change was not random. That is why we want a pilot first.""")
+The rule itself goes into an eight-week pilot in about ten factories. We compare them with similar factories that keep the old setting, and measure weighings and missed picks.
+In parallel, the signal of picks nearby should be checked on site, and the firmware team can fix the loops.
+Our limits are simple. One season of data, the April change was not random, and the time stamps are in UTC, so we did not analyse local working hours. That is why we want a pilot first.""")
 
-    # ---- 20 thank you ---------------------------------------------------------------------------
+    # ---- 16 thank you ---------------------------------------------------------------------------
     s = d.slide()
     tb(s, LM, 1.2, 8, 0.3, "THANK YOU", size=12, bold=True, color=MINT, spc=150)
     tb(s, LM, 1.6, 8, 1.0, "Questions?", size=52, family=HEAD, bold=True, color=WHITE)
@@ -1667,115 +1522,141 @@ Our limits are simple. We have one season of data, and the April change was not 
         tb(s, LM + 0.7, yy + 0.05, 1.5, 0.4, t, size=20, family=HEAD, bold=True, color=WHITE)
         tb(s, LM + 2.2, yy + 0.1, 8, 0.4, body, size=17, color=SOFT)
         yy += 0.75
-    tb(s, LM, 6.5, 11, 0.4, "Erenalp Çakıroğlu · code, report and pipeline in a private repository (case data under NDA)",
-       size=11.5, color=MUTED)
+    tb(s, LM, 6.5, 11, 0.4, "Erenalp Çakıroğlu and Nikolaos Georgantopoulos · Group 3 · code, report and pipeline in a "
+       "private repository (case data under NDA)", size=11.5, color=MUTED)
     notes(s, "Thank you. We are happy to take your questions.")
 
     # ================================= backup =================================
     s = d.slide(alt=True)
-    y = head(s, "BACKUP · ALTERNATIVES", "We tested the shortcuts. None of them works.")
-    q = N["quiet"][N["quiet"].threshold == 0.01].set_index("scale_type")
-    p1 = {st: pol.loc[(st, P["P1"])] for st in SCALES}
-    rows = [["Idea", "What happened", "Verdict"],
-            ["One setting for all scales", f"Misses {pc(p1['20kg'].median_miss_rate)} to {pc(p1['6kg'].median_miss_rate)} "
-             "of the picks", "no"],
-            ["Follow Bossard's KPI", "Pushes scales to setting 1, where the sensor barely reacts", "no"],
-            ["A table by pick size or item weight", "Chooses the same setting for almost every scale", "no gain"],
-            ["Sensor off at quiet hours", f"Saves only {pc(q.loc['20kg', 'share_empty_avoided'])}, and real picks "
-             "happen then too", "no"],
-            ["Extra night check for every scale", "Eats a third of the savings", "no"],
-            ["Longer wait time between weighings", "Only used in two factories, cannot be measured", "open"],
-            ["Bundle wake-ups into one weighing", "Saves a few % more, needs a firmware change", "maybe later"]]
-    table(s, LM, y, CW, [3.7, 6.2, 1.66], rows, size=13, row_h=0.52, align="lll", col_colors=[WHITE, TXT, CORAL])
-    footer(s, OWN + " · Report §6.3, §6.5", d.n)
-    notes(s, """We also tested the obvious shortcuts.
-One setting for all looks good on Bossard's KPI, but it misses many real picks.
-Switching the sensor off at quiet hours does not help. Empty wake-ups follow the working day, just like real picks.
-An extra night check for every scale costs too much.
-A longer wait time was only used in two factories, so we cannot measure it.
-Bundling wake-ups is a nice firmware idea for later, but it adds only a little.""")
+    y = head(s, "BACKUP · DATA CHECKS", "What we removed, and what we kept")
+    rows = [["Check", "Rows", "What it means", "Action"],
+            ["Duplicate rows", f"{fu['A2_duplicate']:,}", "Same scale, same time to the millisecond", "deleted"],
+            ["Impossible weights", f"{fu['A5_weight_invalid']:,}", "144 kg to 50 t on a 20 kg scale", "deleted"],
+            ["Duplicates with two labels", f"{fu['B0_duplicate_label_conflict']:,}", "One copy says missed, the other OK",
+             "kept, label not used"],
+            ["Label missing", f"{fu['B1_label_missing']:,}", "No OK, empty or missed label", "kept, not in KPIs"],
+            ["Setting missing", f"{fu['B3_sensitivity_missing']:,}", "The sensor setting is empty", "kept, not in KPIs"],
+            ["Other wait time or delay", f"{fu['B4_trigger_config_nonstandard']:,}", "Non-standard trigger settings, "
+             "e.g. a 60 min wait", "kept, not in KPIs"],
+            ["Scale type or site unknown", f"{fu['B5_device_metadata_missing']:,}", "Not in the scale list, cannot "
+             "tell 6 kg from 20 kg", "kept, not in KPIs"],
+            ["Too short periods", f"{fu['B6_section_not_relevant']:,}", "Under 5 days or 20 weighings on one "
+             "setting (D ONE rule)", "kept, not in KPIs"],
+            ["Setting 3", f"{fu['B7_sensitivity_anomaly']:,}", "Four-week trial in April, studied apart", "studied apart"],
+            ["Rare settings", f"{fu['B8_sensitivity_low_support']:,}", "Used by fewer than 30 scales of a type",
+             "kept, not in KPIs"]]
+    table(s, LM, y - 0.05, CW, [2.8, 1.25, 5.2, 2.3], rows, size=12, row_h=0.4, align="lrll",
+          col_colors=[WHITE, MINT, TXT, SOFT])
+    card(s, LM, 6.05, CW, 0.7, accent=MINT, strong=True)
+    tb(s, LM + 0.25, 6.05, CW - 0.5, 0.7, f"**{N['rows_main'] / 1e6:.2f} M of {N['rows'] / 1e6:.2f} M rows "
+       f"({pc(N['share_main'])}) are used for the KPIs.** Only {N['deleted']:,} rows were deleted. The rest stay in the "
+       "data, because the next weighing needs them to compute its weight change.", size=13, color=SOFT, anchor="m")
+    footer(s, OWN + " · Report §3, Appendix A", d.n)
+    notes(s, f"""We deleted only rows that were clearly broken. Duplicate rows and five impossible weights.
+Everything else stays in the data, but some rows are not used for the KPIs. For example rows without a sensor setting, or scales we could not find in the scale list.
+In the end we work with {pc(N['share_main'])} of all rows, about 5.3 million weighings.""")
 
     s = d.slide()
+    y = head(s, "BACKUP · PICKS NEARBY", "How we checked the signal, and what it cannot show")
+    pic(s, ch_correlogram(plt, N, R, 6.0, 3.3), LM - 0.15, y - 0.05, w=6.0)
+    pic(s, ch_placebo(plt, N, R, 5.4, 3.3), 7.1, y - 0.05, w=5.4)
+    ps = R["per_scale"]
+    checks = [("Peak at zero", "Around an empty wake-up, picks at other bins of the site are about 8 times more "
+               "frequent than normal."),
+              ("Not just a busy hour", f"One minute later, in the same hour, only {pc(coup.loc['both', 'p_chance'])} "
+               f"have a pick nearby, against {pc(coup.loc['both', 'p_near'])}."),
+              ("Not the clock", "Picks in another factory at the same second show no link."),
+              ("Not equally strong", f"On most scales, {pc(ps.q25.min())} to {pc(ps.q75.max())} of the empty "
+               "wake-ups are linked. Shelf positions are unknown.")]
+    cw4 = (CW - 3 * 0.2) / 4
+    ty = y + 3.45
+    for i, (t, body) in enumerate(checks):
+        x = LM + i * (cw4 + 0.2)
+        card(s, x, ty, cw4, 1.5)
+        badge(s, x + 0.15, ty + 0.15, 0.28, "✓" if i < 3 else "!", fill=MINT if i < 3 else AMBER, size=11)
+        tb(s, x + 0.52, ty + 0.15, cw4 - 0.62, 0.3, t, size=13, family=HEAD, bold=True, color=WHITE)
+        tb(s, x + 0.15, ty + 0.55, cw4 - 0.3, 0.9, body, size=11.5, color=TXT, line=1.1)
+    footer(s, OWN + " · event coincidence analysis (Donges et al., 2016) · Report §4.5, Appendix C", d.n)
+    notes(s, f"""We checked the signal in three ways.
+On the left, around an empty wake-up, picks at the other bins jump to about eight times the normal level, exactly at zero seconds.
+One minute later, in the same busy hour, the link is gone. So it is not just a busy time of day.
+On the right, picks from a different factory at the same second show no link.
+How strong the link is differs a lot between scales, between {pc(ps.q25.min())} and {pc(ps.q75.max())} for most of them. And we do not know which bins share a shelf. So it stays a signal to check on site.""")
+
+    s = d.slide(alt=True)
     y = head(s, "BACKUP · ROBUSTNESS", "Without the looping scales, every key result holds")
     bs, ka, kn = R["base"], R["knob_all"], R["knob"]
+    m7_all = {st: miss8[st] + ka.loc[(st, 7.0), "missed_pp"] for st in SCALES}
     rows = [["Result", "All scales", "Without looping scales"],
             ["Empty wake-ups per week, typical scale (20 kg / 6 kg)",
              f"{bs.loc[('all scales', '20kg'), 'tm_per_week']:.1f} / {bs.loc[('all scales', '6kg'), 'tm_per_week']:.1f}",
              f"{bs.loc[('without loop scales', '20kg'), 'tm_per_week']:.1f} / {bs.loc[('without loop scales', '6kg'), 'tm_per_week']:.1f}"],
-            ["Empty wake-ups linked to picks nearby", pc(c_both_all), f"**{pc(c_both)}**"],
             ["Setting 8 → 7: fewer empty wake-ups",
              f"{pct0(-ka.loc[('20kg', 7.0), 'empty_wakeups_change'] * 100)} / {pct0(-ka.loc[('6kg', 7.0), 'empty_wakeups_change'] * 100)}",
              f"{pct0(-kn.loc[('20kg', 7.0), 'empty_wakeups_change'] * 100)} / {pct0(-kn.loc[('6kg', 7.0), 'empty_wakeups_change'] * 100)}"],
-            ["Our rule: fewer weighings", f"{pct0(-save20)} / {pct0(-save6)}",
-             f"{pct0(p7_nl['20kg'].meas_change_pct_without_loops)} / {pct0(p7_nl['6kg'].meas_change_pct_without_loops)}"],
-            ["Our rule: picks missed, typical scale", f"{pc(miss20)} / {pc(miss6)}",
-             f"{pc(p7_nl['20kg'].median_miss_rate)} / {pc(p7_nl['6kg'].median_miss_rate)}"]]
-    table(s, LM, y, CW, [6.0, 2.8, 2.8], rows, size=13, row_h=0.55, align="lrr", hl_rows=(2,))
-    tb(s, LM, y + 3.6, CW, 0.8, f"{int(pers.left_and_came_back)} looping scales left their looping setting and later came back to it. "
-       f"{int(pers.loop_again_after_return)} of them looped again. Setting 3 was never used again after the April trial.",
-       size=12.5, color=TXT, line=1.12)
+            ["Setting 7: picks missed, typical scale", f"{m7_all['20kg']:.0f}% / {m7_all['6kg']:.0f}%",
+             f"{miss7['20kg']:.0f}% / {miss7['6kg']:.0f}%"],
+            ["Empty wake-ups linked to picks nearby", pc(c_both_all), pc(c_both)]]
+    table(s, LM, y, CW, [6.0, 2.8, 2.8], rows, size=13, row_h=0.55, align="lrr")
+    tb(s, LM, y + 3.1, CW, 0.8, f"{int(pers.left_and_came_back)} looping scales left their looping setting and later came "
+       f"back to it. {int(pers.loop_again_after_return)} of them looped again. Setting 3 was never used again after the "
+       "April trial.", size=12.5, color=TXT, line=1.12)
     footer(s, OWN + " · report/robustness_loops.py · Report Appendix C", d.n)
     notes(s, """We removed the looping scales and ran everything again.
-The typical scale looks the same. The effect of the setting stays in the same range. Our rule saves the same.
+The typical scale looks the same. The effect of the setting stays in the same range. Missed picks on setting 7 stay low.
 The link to picks nearby gets stronger, because the looping scales wake up when nobody is there.""")
 
-    s = d.slide(alt=True)
-    y = head(s, "BACKUP · BATTERY", "Why the battery gains less than the network")
-    n20 = float(N["base"].loc["20kg", "meas_per_day_median"])
-    hrs = 2.0 * 3000 / 3600
-    new20 = n20 * (1 - save20 / 100)
-    e_old, e_new = 24 + n20 * hrs, 24 + new20 * hrs
-    steps = [("Sleeping", "One day of sleep = 24 hours of sleep energy."),
-             ("One weighing", f"About 2 s at about 3,000 times the sleep power = {hrs:.1f} hours of sleep energy."),
-             ("Today", f"A typical 20 kg scale weighs {n20:.1f} times a day: 24 + {n20:.1f} × {hrs:.1f} = {e_old:.1f} hours."),
-             ("With our rule", f"{new20:.1f} weighings a day: 24 + {new20:.1f} × {hrs:.1f} = {e_new:.1f} hours."),
-             ("Battery life", f"{e_old:.1f} ÷ {e_new:.1f} = {e_old / e_new:.2f}, about +{(e_old / e_new - 1) * 100:.0f}% "
-              f"for this scale. Over all scales: +{p7['20kg'].battery_life_change_pct:.0f}% (20 kg) and "
-              f"+{p7['6kg'].battery_life_change_pct:.0f}% (6 kg).")]
-    ty = y
-    for i, (t, body) in enumerate(steps):
-        badge(s, LM, ty, 0.36, str(i + 1), fill=MINT if i < 4 else PERI)
-        tb(s, LM + 0.55, ty + 0.02, 2.3, 0.4, t, size=14, family=HEAD, bold=True, color=WHITE)
-        tb(s, LM + 2.9, ty + 0.04, 8.6, 0.5, body, size=13, color=SOFT)
-        ty += 0.62
-    card(s, LM, ty + 0.2, CW, 0.85, accent=MINT, strong=True)
-    tb(s, LM + 0.25, ty + 0.2, CW - 0.5, 0.85, "**Sleep uses most of the energy.** So fewer weighings help the battery "
-       "a little, but they help the network, the cloud and ARIMS a lot.", size=13.5, color=SOFT, anchor="m")
-    footer(s, "Assumption from the case description Bossard / D ONE (2026): a weighing takes about 2 s at about 3,000 "
-           "times the sleep power · Report §6.3", d.n)
-    notes(s, """The battery number comes from the assumption in the case description. A weighing takes about two seconds and uses about three thousand times the sleep power.
-So one weighing costs as much energy as about one and a half hours of sleep. A typical scale weighs only two or three times a day, so most of the energy goes into sleeping.
-That is why cutting weighings by more than half adds only about ten percent battery life. The big gain is on the network, the cloud and ARIMS.""")
-
     s = d.slide()
-    y = head(s, "BACKUP · METHODS", "Four methods, each answering one question")
+    y = head(s, "BACKUP · BATTERY", "Most of the battery goes into sleep")
+    n_day = {st: float(bk.loc[st, "meas_per_day_median"]) for st in SCALES}
+    share = lambda st, sec: 24 / (24 + n_day[st] * sec * 3000 / 3600)
+    card(s, LM, y - 0.05, CW, 1.25, accent=PERI)
+    tb(s, LM + 0.25, y + 0.08, CW - 0.5, 0.3, "WHAT WE ASSUMED", size=10.5, bold=True, color=PERI, spc=100)
+    tb(s, LM + 0.25, y + 0.4, CW - 0.5, 0.8, "The case description says that a scale uses about **3,000 times more "
+       "power** while it measures than while it sleeps. How long one measurement takes is not given. **We assumed 2 "
+       "seconds** and show 1 and 5 seconds as well.", size=13, color=SOFT, line=1.12)
+    rows = [["One measurement takes", "1 s", "2 s (our assumption)", "5 s"],
+            [f"Typical 20 kg scale ({n_day['20kg']:.1f} weighings a day)"] + [pc(share("20kg", t)) for t in (1, 2, 5)],
+            [f"Typical 6 kg scale ({n_day['6kg']:.1f} weighings a day)"] + [pc(share("6kg", t)) for t in (1, 2, 5)]]
+    tb(s, LM, y + 1.45, CW, 0.3, "SHARE OF THE BATTERY USED WHILE SLEEPING", size=10.5, bold=True, color=MINT, spc=120)
+    table(s, LM, y + 1.8, CW, [4.7, 2.0, 2.86, 2.0], rows, size=13, row_h=0.55, align="lrrr")
+    card(s, LM, y + 3.75, CW, 0.75, accent=MINT, strong=True)
+    tb(s, LM + 0.25, y + 3.75, CW - 0.5, 0.75, "**So fewer weighings help the battery much less than the network and "
+       "the cloud.** We do not give a battery saving in the main deck.", size=13.5, color=SOFT, anchor="m")
+    footer(s, "Assumption from the case description Bossard / D ONE (2026), measurement time assumed · radio "
+           "transmission not modelled · Report §6.3", d.n)
+    notes(s, f"""The battery is not in the data. We used the case description. A scale uses about three thousand times more power while it measures than while it sleeps.
+How long a measurement takes is not given. We assumed two seconds.
+Then one weighing costs as much energy as about one and a half hours of sleep. A typical scale weighs only two or three times a day. So most of the energy goes into sleep, about {pc(share('20kg', 2))} for a 20 kg scale.
+Even with five seconds per weighing it is still about {pc(share('20kg', 5))}.
+That is why fewer weighings help the battery much less than the network and the cloud.""")
+
+    s = d.slide(alt=True)
+    y = head(s, "BACKUP · METHODS", "Three methods, each answering one question")
     meth = [("Does the setting cause the change?", "Each scale before and after its change in April, minus the "
              "change of scales that kept their setting (difference in differences)."),
             ("Are empty wake-ups linked to picks?", "Count picks at other scales of the same factory within 14 s, "
              "minus the chance level one minute later (event coincidence analysis)."),
             ("How small a pick can a scale see?", "The weight change behind each label. Below about 23 g (20 kg) or "
-             "5 g (6 kg) a pick is invisible."),
-            ("Which rule is best?", "Each scale's own behaviour on setting 8, times the measured effect of each "
-             "setting. 9 rules, 16 weeks, 5 repeats.")]
-    cw2 = (CW - 0.3) / 2
+             "5 g (6 kg) a pick is invisible.")]
+    cw3 = (CW - 2 * 0.3) / 3
     for i, (t, body) in enumerate(meth):
-        x, yy = LM + (i % 2) * (cw2 + 0.3), y + (i // 2) * 2.0
-        card(s, x, yy, cw2, 1.8, accent=MINT if i % 2 == 0 else PERI)
-        tb(s, x + 0.25, yy + 0.2, cw2 - 0.5, 0.35, t, size=15, family=HEAD, bold=True, color=WHITE)
-        tb(s, x + 0.25, yy + 0.65, cw2 - 0.5, 1.1, body, size=12.5, color=TXT, line=1.12)
+        x = LM + i * (cw3 + 0.3)
+        card(s, x, y, cw3, 2.6, accent=MINT if i != 1 else PERI)
+        tb(s, x + 0.25, y + 0.2, cw3 - 0.5, 0.8, t, size=15, family=HEAD, bold=True, color=WHITE, line=1.05)
+        tb(s, x + 0.25, y + 1.05, cw3 - 0.5, 1.5, body, size=12.5, color=TXT, line=1.12)
     footer(s, "Angrist & Pischke (2009) · Donges et al. (2016) · Green & Swets (1966) · Report Appendix A", d.n)
     notes(s, """Each question has its own method.
 For the effect of the setting we compare each scale with itself before and after its change, and subtract what happened to scales that kept their setting.
 For the link to picks nearby we count picks around every empty wake-up and subtract the chance level.
-For pick size we look at the weight change behind every label.
-For the rule we simulate every scale from its own numbers.""")
+For pick size we look at the weight change behind every label.""")
 
-    s = d.slide(alt=True)
+    s = d.slide()
     y = head(s, "BACKUP · CODE", "One pipeline from raw data to this deck")
     mods = [("Load and check", "load 7.6 M rows into DuckDB, delete broken rows, mark the rest"),
             ("Build tables", "weight change per weighing; one record per scale and setting"),
-            ("Analyse", "today, the setting, parameters, factories, pick size, picks nearby, simulation"),
-            ("Validate", "a simulated fleet with known answers. The pipeline must find them first."),
+            ("Analyse", "today, the setting, parameters, factories, pick size, loops, picks nearby"),
+            ("Validate", "synthetic test data with known answers. The pipeline must find them first."),
             ("Report", "summary tables, figures, the written report and this deck"),
             ("Robustness", "every key result again without the looping scales")]
     table(s, LM, y, 7.6, [2.0, 5.6], [["Step", "What it does"]] + [[a, bb] for a, bb in mods], size=12.5,
@@ -1790,15 +1671,8 @@ For the rule we simulate every scale from its own numbers.""")
     footer(s, "Source: project repository (private)", d.n)
     notes(s, "Everything in this deck can be rebuilt from the three raw files with these five commands.")
 
-    s = d.slide()
-    y = head(s, "REFERENCES", "Sources")
-    tb(s, LM, y - 0.1, CW, 4.9, REFS, size=11, color=TXT, line=1.08, space_after=5)
-    footer(s, "", d.n)
-    notes(s, "Case data are confidential and used under the module NDA.")
-
     d.save(DECK)
     return DECK, N, R
-
 
 if __name__ == "__main__":
     path, _, _ = build()
