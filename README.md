@@ -6,7 +6,7 @@
 > Case from the HSLU MSc *Data-Driven Supply Chain Management & Logistics* module (Bossard AG × D ONE).
 > The confidential fleet data is **not** included. `make demo` runs the full pipeline on a realistic synthetic fleet instead.
 >
-> **Status: v2 (November 2026).** The deck was revised after the feedback of Bossard and D ONE on the interim presentation (see *What changed in v2*). v1 is the tag `v1.0`.
+> **Status: November 2026.** The deck was revised after the feedback of Bossard and D ONE on the interim presentation (see *What changed after the feedback*). The version presented on 23 Oct 2026 is kept in the branch `before-feedback`.
 
 ## The answer in one paragraph
 
@@ -20,7 +20,7 @@ The right sensitivity is not in the master data: box type and item weight matter
 
 A signal to check on site: once the looping scales are left out, 55% of the empty wake-ups coincide with a real pick at another bin of the same site within ±14 s (beyond chance; a placebo site gives 0.7%). Shelf positions are not in the data, so this needs a vibration test before any fix. Every key result holds without the looping scales (`report/robustness_loops.py`, report Appendix C).
 
-### What changed in v2
+### What changed after the feedback
 
 | Feedback | Change in the deck |
 |---|---|
@@ -30,7 +30,7 @@ A signal to check on site: once the looping scales are left out, 55% of the empt
 | Battery life was not defined | Defined in the backup: 3,000× sleep power (case description) and an assumed 2 s per measurement, shown for 1 to 5 s; no battery saving in the main deck |
 | Time stamps are UTC, clients are global | Night and weekend shares removed; the loop check uses only the time between wake-ups; listed as a limit |
 
-The written report (`report/report.pdf`) is still the v1 text and includes the simulation.
+The written report (`report/report.pdf`) is still the text from before the feedback and includes the simulation.
 
 Rejected after testing: one level for all, a table by pick size, steering by the TOO_MANY fraction, quiet hours, a longer minimum wait time (not measurable). Merging bursts of wake-ups is an optional firmware item.
 
@@ -130,7 +130,7 @@ powershell -ExecutionPolicy Bypass -File run_bossard.ps1   # Windows
 
 ## Report and presentation
 
-- `presentation/SmartBin – presentation.pptx`: the deck for the client's CTO (v2): problem, findings, flag-tune-watch, next steps (16 slides + 6 backup), plain language, charts instead of text, short speaker notes. Fonts: DM Sans and Space Grotesk (free Google fonts).
+- `presentation/SmartBin – presentation.pptx`: the deck for the client's CTO: problem, findings, flag-tune-watch, next steps (16 slides + 6 backup), plain language, charts instead of text, short speaker notes. Fonts: DM Sans and Space Grotesk (free Google fonts).
 - `report/report.pdf` – the written report (Quarto with the Typst engine, 18 pages).
 
 After a full pipeline run both are rebuilt with:
